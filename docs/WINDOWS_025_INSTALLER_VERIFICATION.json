@@ -1,0 +1,12 @@
+{
+  "state": "passed",
+  "installed_utc": "2026-09-30T15:55:38.985504+00:00",
+  "destination": "C:\\Users\\owner\\Desktop\\Image_labeller\\LabelWorkflow-0.1.20-windows-source\\review_audit_20260929\\mac_025_parity\\installed_025",
+  "no_shortcuts": true,
+  "no_registry": true,
+  "installed_file_count_crc_size_matches": 40599,
+  "source_files_sha256_matches": 50,
+  "version_and_source": "0.2.5\n0.2.5\nC:\\Users\\owner\\Desktop\\Image_labeller\\LabelWorkflow-0.1.20-windows-source\\review_audit_20260929\\mac_025_parity\\installed_025\\src\\napari_label_workflow\\__init__.py\n",
+  "environment_installed_or_changed": false,
+  "neural_execution": false
+}

@@ -4,16 +4,16 @@
 
 **LTP** (Label Train Predict, formerly *Label Workflow*) is a desktop app for labelling 3D microscopy images and training your own segmentation model, without writing code. Label a few regions, train, correct the model's suggestions, and run the final model on whole images of any size.
 
-It is built on [napari](https://napari.org) and PyTorch and runs on your own computer: on the Apple GPU of a Mac, on an NVIDIA GPU (CUDA) on Windows and Linux, or on the CPU. Your images never leave your machine unless you choose to train on your own workstation.
+It is built on [napari](https://napari.org) and PyTorch and runs on your own computer: on the Apple GPU of a Mac, on an NVIDIA GPU (CUDA) on Windows and Linux, or on the CPU. Your images never leave your machine unless you choose to train or predict on your own workstation.
 
-The Mac app is called LTP from version 0.2.2. The Windows network-options preview (0.2.4) still uses the former name, *Label Workflow*.
+The Mac app is called LTP from version 0.2.2. The Windows 0.2.5 parity preview uses LTP branding; its installer and existing settings retain the former *Label Workflow* name.
 
 ## Download
 
 | System | Download | Notes |
 |---|---|---|
 | **Mac** (Apple silicon) | [Latest release](https://github.com/sciencehunt/LabelTrainPredict/releases/latest): `LTP-<version>.dmg` | Signed and notarized; updates itself |
-| **Windows** 10/11 x64 | [LTP 0.2.4 network-options preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.4-windows-network-preview): installer zip + app parts | SE/K3, custom capacity and auxiliary heads; CUDA required for instances |
+| **Windows** 10/11 x64 | [LTP 0.2.5 Windows parity preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-windows-parity-preview): installer zip + app parts | Published Mac 0.2.5 features, SE/K3/auxiliary heads, remote GPU inference |
 | **Linux** x86_64 | [LTP 0.2.4 network-options preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.4-windows-network-preview): `ltp-0.2.4-linux-x86_64.tar.gz` (same features as Windows 0.2.4), or `ltp-<version>` from the [latest release](https://github.com/sciencehunt/LabelTrainPredict/releases/latest) | Installs its packages from the internet; CUDA required for instances in 0.2.4 |
 
 ### Mac
@@ -24,11 +24,12 @@ The Mac app is called LTP from version 0.2.2. The Windows network-options previe
 
 ### Windows
 
-- Download the installer ZIP and all app parts from the [0.2.4 network-options preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.4-windows-network-preview) into one folder. Unzip the installer there and run **Install Label Workflow.cmd**. Parts are checksum-verified; about 14 GB temporary disk space is advisable.
+- Download the installer ZIP and all app parts from the [0.2.5 Windows parity preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-windows-parity-preview) into one folder. Unzip the installer there and run **Install Label Workflow.cmd**. Parts are checksum-verified; about 14 GB temporary disk space is advisable.
 - The app is unsigned. Instance training, prediction and decoding require an NVIDIA CUDA GPU; there is no silent CPU fallback for this path. Semantic workflows have separate device support.
 - **Advanced training:** SE U-Net or custom K3, optional SE attention, width/depth presets or Custom, individually enabled flow/embedding/offset heads, global and per-head loss weights. These auxiliary heads remain experimental.
 - **Advanced inference:** inspect checkpoint structure and override only decoder thresholds. Changing the network requires a newly trained checkpoint.
-- This preview preserves existing projects and does not replace the Mac updater. See [Mac parity notes](docs/MAC_NETWORK_PARITY.md) and [release notes](docs/WINDOWS_NETWORK_OPTIONS.md). The source/handoff archive is on the preview release; it is not a signed Mac build.
+- **Remote inference:** choose Workstation (SSH) in Run on full images. The server selects its available GPU and tunes tile batching against measured speed/free memory; the client receives verified, unreviewed results. Neural inference never falls back to CPU on this route.
+- This preview preserves projects and the Mac update feed. It matches the published first Mac 0.2.5 source handoff; the planned Stage 3/results-browser second drop is not included yet. See [release and test notes](docs/WINDOWS_025_PARITY.md) and [Mac merge notes](docs/MAC_025_PARITY_HANDOFF.md).
 
 ### Linux
 

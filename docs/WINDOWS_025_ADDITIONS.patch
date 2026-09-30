@@ -1,0 +1,1970 @@
+--- a/src/napari_label_workflow/apply_panel.py
++++ b/src/napari_label_workflow/apply_panel.py
+@@ -6,7 +6,7 @@
+ from pathlib import Path
+ 
+ from qtpy.QtCore import Qt
+-from qtpy.QtWidgets import (QCheckBox, QDialog, QDoubleSpinBox, QFileDialog, QHBoxLayout, QLabel, QListWidget,
++from qtpy.QtWidgets import (QCheckBox, QComboBox, QDialog, QDoubleSpinBox, QFileDialog, QHBoxLayout, QInputDialog, QLabel, QListWidget,
+                             QListWidgetItem, QPushButton, QVBoxLayout, QWidget)
+ 
+ 
+@@ -100,11 +100,23 @@
+         layout.addWidget(self._heading('Model')); layout.addLayout(row)
+ 
+         layout.addWidget(self._heading('Images'))
++        row = QHBoxLayout(); self.destination = QComboBox()
++        self.destination.addItem('This computer', 'here'); self.destination.addItem('Workstation (SSH)', 'workstation')
++        ws = workflow.workstation() if hasattr(workflow, 'workstation') else None
++        saved_destination = (workflow.project.config.get('ui_settings', {}).get('inference_destination') if workflow.project else None)
++        self.destination.setCurrentIndex(1 if saved_destination == 'workstation' or (saved_destination is None and ws and ws.enabled) else 0)
++        row.addWidget(QLabel('Run inference on')); row.addWidget(self.destination, 1)
++        settings = QPushButton('Workstation settings…'); settings.clicked.connect(lambda: workflow.guard(self.configure_workstation)); row.addWidget(settings)
++        layout.addLayout(row)
++        self.destination_hint = QLabel(); self.destination_hint.setWordWrap(True); layout.addWidget(self.destination_hint)
++        self.destination.currentIndexChanged.connect(self.destination_changed)
+         self.images = QListWidget(); self.images.setMinimumHeight(140); layout.addWidget(self.images)
+         row = QHBoxLayout()
+         for text, slot in (('Add images…', self.add_files), ('Add folder…', self.add_folder), ('Remove', self.remove_selected)):
+             b = QPushButton(text); b.clicked.connect(slot); row.addWidget(b)
+         row.addStretch(1); layout.addLayout(row)
++        self.remote_image_button = QPushButton('Add image path on workstation…'); self.remote_image_button.clicked.connect(self.add_remote_image)
++        layout.addWidget(self.remote_image_button)
+ 
+         layout.addWidget(self._heading('Options'))
+         self.probability = QCheckBox('Also save a probability map (how sure the model is, 0–255)')
+@@ -124,7 +136,7 @@
+         layout.addWidget(self.results)
+         row = QHBoxLayout()
+         self.open_button = QPushButton('Open selected result'); self.open_button.clicked.connect(lambda: self.open_result(self._selected_result()))
+-        self.folder_button = QPushButton('Show in Finder'); self.folder_button.clicked.connect(lambda: self.reveal(self._selected_result()))
++        self.folder_button = QPushButton('Show results folder'); self.folder_button.clicked.connect(lambda: self.reveal(self._selected_result()))
+         row.addWidget(self.open_button); row.addWidget(self.folder_button); row.addStretch(1)
+         self.run_button = QPushButton('▶ Run on ticked images'); self.run_button.setProperty('primary', True)
+         self.run_button.clicked.connect(lambda: self.wf.guard(self.run))
+@@ -136,6 +148,30 @@
+         for source in workflow.all_sources():
+             self._add_source(source, checked=True)
+         self.refresh()
++        self.destination_changed(persist=False)
++
++    def configure_workstation(self):
++        self.wf.edit_workstation()
++        self.destination_changed(persist=False)
++
++    def destination_changed(self, *args, persist=True):
++        remote = self.destination.currentData() == 'workstation'
++        self.remote_image_button.setEnabled(remote)
++        ws = self.wf.workstation() if hasattr(self.wf, 'workstation') else None
++        self.destination_hint.setText(
++            (f'Inference runs on {ws.target if ws and ws.host else "the configured workstation"}. '
++             'Its available GPU memory determines the tile batch size. Local files are uploaded once per run; workstation paths stay there. '
++             'Results return here. No CPU fallback.') if remote else 'Inference uses this computer. Choose Workstation (SSH) to use the server GPU and its memory capacity.')
++        if persist and self.wf.project:
++            self.wf.project.config.setdefault('ui_settings', {})['inference_destination'] = self.destination.currentData()
++            self.wf.project.save()
++
++    def add_remote_image(self):
++        path, ok = QInputDialog.getText(self, 'Image on workstation', 'Full image path on the configured workstation (optional ::series selector):')
++        if ok and path.strip():
++            path = path.strip(); self._add_source(path, label='Workstation: ' + path)
++            for i in range(self.images.count()):
++                if self.images.item(i).data(Qt.UserRole) == path:self.images.item(i).setData(Qt.UserRole + 1, True)
+ 
+     @staticmethod
+     def _heading(text):
+@@ -216,11 +252,19 @@
+         tta = self.tta.isChecked(); probability = self.probability.isChecked()
+         self.inference_settings.set_checkpoint(checkpoint)
+         decoder_overrides = self.inference_settings.overrides()
++        remote = self.destination.currentData() == 'workstation'
++        ws = wf.workstation() if remote else None
++        remote_sources = {self.images.item(i).data(Qt.UserRole) for i in range(self.images.count())
++                          if self.images.item(i).data(Qt.UserRole + 1) or str(self.images.item(i).data(Qt.UserRole)).startswith('ssh://')}
++        if remote:
++            ws.validate()
++        elif any(source in remote_sources for source in sources):
++            raise ValueError('Images on a workstation require Workstation (SSH) as the inference destination.')
+         project_sources = set(wf.all_sources())
+         project_cache = wf.project.root / 'source_cache' if wf.project else None
+         axes = wf.axes.text().strip() or None if hasattr(wf, 'axes') else None
+         if wf.project:
+-            wf.audit('full_image_inference', {'checkpoint': str(checkpoint), 'images': len(sources), 'tta': tta, 'probability': probability, 'output': str(output), 'decoder_overrides': decoder_overrides})
++            wf.audit('full_image_inference', {'checkpoint': str(checkpoint), 'images': len(sources), 'tta': tta, 'probability': probability, 'output': str(output), 'decoder_overrides': decoder_overrides, 'destination': 'workstation' if remote else 'here', 'host': ws.target if ws else None, 'capacity_policy': 'execution_gpu_available_memory'})
+ 
+         def work():
+             done, failed = [], []
+@@ -230,12 +274,18 @@
+                 # Project images reuse the project's prepared copy; others get a temporary one, removed afterwards.
+                 cache = project_cache if (source in project_sources and project_cache) else output / '.preparing'
+                 try:
+-                    done.append(run_full_image(checkpoint, source, output, axes=axes, cache_dir=cache, tta=tta,
+-                                               save_probability=probability, progress=wf.progress, cancel=wf.cancel, decoder_overrides=decoder_overrides))
++                    if remote:
++                        from .remote_inference import run_full_image_remote
++                        done.append(run_full_image_remote(ws, checkpoint, source, output, axes=axes, tta=tta,
++                                    save_probability=probability, progress=wf.progress, cancel=wf.cancel,
++                                    decoder_overrides=decoder_overrides, source_is_remote=source in remote_sources))
++                    else:
++                        done.append(run_full_image(checkpoint, source, output, axes=axes, cache_dir=cache, tta=tta,
++                                                   save_probability=probability, progress=wf.progress, cancel=wf.cancel, decoder_overrides=decoder_overrides))
+                 except Exception as exc:
+                     failed.append(f'{wf.source_label(source)}: {exc}')
+                 finally:
+-                    if cache != project_cache:
++                    if not remote and cache != project_cache:
+                         shutil.rmtree(output / '.preparing', ignore_errors=True)
+             return done, failed
+ 
+@@ -280,6 +330,12 @@
+         source = join_source(report['source'], report['series']) if report.get('series') else report['source']
+         if source not in known and report['source'] in known:
+             source = report['source']
++        remote = report.get('remote_execution') or {}
++        if remote.get('requested_source'):
++            source = remote['requested_source']
++            if remote.get('source_is_remote') and not source.startswith('ssh://'):
++                from urllib.parse import quote
++                source = 'ssh://' + remote['workstation']['target'] + '/' + quote(source.lstrip('/'), safe='/::')
+         in_project = source in known
+         try:
+             meta = inspect_image(source)
+--- a/src/napari_label_workflow/inference.py
++++ b/src/napari_label_workflow/inference.py
+@@ -308,7 +308,8 @@
+ 
+ def run_full_image(checkpoint, source, output_root, axes=None, cache_dir=None, tta=False,
+                    save_probability=False, progress=None, cancel=None, block_xy=1024, slab=None,
+-                   channel_map=None, normalization_override=None, name_suffix="", decoder_overrides=None):
++                   channel_map=None, normalization_override=None, name_suffix="", decoder_overrides=None,
++                   device_override=None, require_gpu=False):
+     """channel_map: image channel for each of the model's channels (e.g. [0, 1, 2] to drop a 4th
+     transmitted-light channel, or [None, None, 1] to feed Cy3 into a Cy5-trained model).
+     normalization_override: replaces the checkpoint's intensity ranges (e.g. measured on this image
+@@ -330,9 +331,9 @@
+         raise ValueError("Choose a LTP model (model.pt).")
+     c = TrainingConfig(**payload["config"]); _validate_config(c)
+     c, decoder_metadata = resolve_decoder_overrides(c, decoder_overrides)
+-    c.device = _inference_device(c.device)
++    c.device = str(device_override) if device_override is not None else _inference_device(c.device)
+     from .accel import is_gpu_device
+-    if c.instance and not is_gpu_device(c.device):
++    if (c.instance or require_gpu) and not is_gpu_device(c.device):
+         raise RuntimeError("Instance inference requires an available GPU (NVIDIA CUDA or Apple MPS) for cuda_basin_v1. "
+                            "No CPU decoder fallback is performed.")
+     normalization = dict(payload.get("normalization") or {})
+@@ -355,7 +356,11 @@
+     shape = tuple(int(v) for v in image.shape[1:])
+     classes = list(normalization.get("class_names") or ["Background"] + [f"Class {i}" for i in range(1, c.classes + 1)])
+     blocks, mz, mxy = plan_blocks(shape, c, block_xy, slab)
+-    model = load_model(payload, c)
++    model = load_model(payload, c, device_override=device_override, require_gpu=require_gpu)
++    from .inference_capacity import select_inference_capacity
++    actual_device = next(model.parameters()).device
++    inference_policy = (select_inference_capacity(c, shape, actual_device)
++                        if is_gpu_device(actual_device) else None)
+ 
+     series = meta.get("series")
+     stem = Path(meta["path"]).stem + (f"_{series}" if series not in (None, "", "t0") else "") + (f"_{name_suffix}" if name_suffix else "")
+@@ -387,7 +392,8 @@
+         if objects:
+             # Decode objects over the whole block INCLUDING margins, then join objects that continue
+             # from blocks already written (their interiors overlap this block's margins).
+-            prob, heads = predict_loaded(model, c, block, tta, None, cancel, None, return_cuda=True)
++            prob, heads = predict_loaded(model, c, block, tta, None, cancel, None, return_cuda=True,
++                                         inference_policy=inference_policy, require_gpu=require_gpu)
+             decoder_metadata["maximum_decoded_block_voxels"] = max(
+                 decoder_metadata.get("maximum_decoded_block_voxels", 0), int(np.prod(block.shape[1:])))
+             local = decode_instances(prob, heads[0], heads[1], c.foreground_threshold,
+@@ -402,7 +408,8 @@
+             prob = prob[(slice(None),) + inner].detach().cpu().numpy()
+         else:
+             wanted = list(range(z0 - zl, z1 - zl))
+-            prob, _ = predict_loaded(model, c, block, tta, None, cancel, wanted)
++            prob, _ = predict_loaded(model, c, block, tta, None, cancel, wanted,
++                                     inference_policy=inference_policy, require_gpu=require_gpu)
+             prob = prob[(slice(None),) + inner]
+             result = prob.argmax(0).astype(label_dtype)
+             counts += np.bincount(result.ravel(), minlength=c.classes + 1)[:c.classes + 1]
+@@ -458,7 +465,9 @@
+                          "depth", "xy_scale", "architecture", "se_attention", "auxiliary_heads", "auxiliary_weight",
+                          "auxiliary_loss_weights", "auxiliary_version", "instance_decoder", "voxel_spacing")},
+               "model_configuration_source": "checkpoint; architecture and auxiliary heads are not inference overrides",
+-              "inference_device": c.device, "decoder": decoder_metadata if objects else None,
++              "inference_device": str(actual_device), "decoder": decoder_metadata if objects else None,
++              "inference_capacity": inference_policy.to_dict() if inference_policy is not None else None,
++              "gpu_required_for_execution": bool(require_gpu or objects),
+               "normalization": normalization.get("kind", "fixed_dtype_range"), "tta": bool(tta),
+               "channel_map": channel_map, "normalization_override": bool(normalization_override),
+               "image_channel_names": meta.get("channel_names"),
+--- /dev/null
++++ b/src/napari_label_workflow/inference_capacity.py
+@@ -0,0 +1,291 @@
++"""Execution-local inference batching, independent of checkpoint training hardware.
++
++CUDA tunes only batch size: tile geometry, precision, weights and blending order
++stay fixed. A short forward probe measures this model on the actual execution GPU.
++No model is moved to CPU, no training occurs and no predictions are saved here.
++MPS retains the Mac batch default; it is not given a guessed CUDA-memory budget.
++"""
++from dataclasses import dataclass, field
++import math
++import os
++import time
++
++
++VERSION = "execution-local-capacity-v1"
++
++
++def canonical_device_name(name, cuda_index=0):
++    """Normalize implicit GPU indices without importing/initializing a framework."""
++    kind, separator, index = str(name).partition(":")
++    if kind in ("cuda", "mps"):
++        return f"{kind}:{index if separator else (cuda_index if kind == 'cuda' else 0)}"
++    return str(name)
++
++
++def host_capacity():
++    result = {"logical_cpu_count": os.cpu_count(), "available_ram_bytes": None, "total_ram_bytes": None}
++    try:
++        import psutil
++        memory = psutil.virtual_memory()
++        result.update(available_ram_bytes=int(memory.available), total_ram_bytes=int(memory.total))
++    except ImportError:
++        pass
++    return result
++
++
++def _positive_cap(value):
++    try:
++        number = int(value)
++    except (TypeError, ValueError) as exc:
++        raise ValueError("Inference batch cap must be an integer from 1 to 128.") from exc
++    if isinstance(value, bool) or str(number) != str(value) or not 1 <= number <= 128:
++        raise ValueError("Inference batch cap must be an integer from 1 to 128.")
++    return number
++
++
++def batch_settings(mode, device_type, max_batch_size=None, autotune=True, environ=None):
++    """Pure policy parsing, usable without importing a tensor framework."""
++    env = os.environ if environ is None else environ
++    if mode not in ("2.5d", "3d") or device_type not in ("cuda", "mps", "cpu"):
++        raise ValueError("Unsupported inference mode/device.")
++    legacy = env.get("LABEL_WORKFLOW_PREDICT_BATCH", "0")
++    if max_batch_size is not None:
++        cap, source = _positive_cap(max_batch_size), "explicit_argument"
++    elif legacy not in (None, "", "0"):
++        cap, source, autotune = _positive_cap(legacy), "legacy_fixed_batch_environment", False
++    elif env.get("LABEL_WORKFLOW_PREDICT_MAX_BATCH"):
++        cap, source = _positive_cap(env["LABEL_WORKFLOW_PREDICT_MAX_BATCH"]), "maximum_batch_environment"
++    else:
++        cap = (32 if mode == "2.5d" else 8) if device_type == "cuda" else (8 if mode == "2.5d" and device_type == "mps" else 1)
++        source = "device_local_default"
++    if device_type == "cpu":
++        cap = 1
++    return {"max_batch_size": cap, "autotune": bool(autotune and device_type == "cuda" and cap > 1), "cap_source": source}
++
++
++def candidate_batches(cap):
++    values = [1]
++    while values[-1] * 2 <= cap:
++        values.append(values[-1] * 2)
++    if values[-1] != cap:
++        values.append(cap)
++    return values
++
++
++def choose_batch(trials):
++    """Prefer the smaller batch unless measured throughput improves by >5%."""
++    chosen, rate = 1, 0.
++    for trial in trials:
++        if trial.get("state") != "measured":
++            continue
++        current = trial["batch_size"] / trial["seconds"]
++        if current > rate * 1.05:
++            chosen, rate = trial["batch_size"], current
++    return chosen
++
++
++@dataclass
++class InferenceCapacity:
++    device: object
++    mode: str
++    max_batch_size: int
++    autotune: bool
++    cap_source: str
++    initial_memory: dict
++    input_shape: tuple
++    host: dict = field(default_factory=dict)
++    tuning_budget_seconds: float = 3.
++    decisions: list = field(default_factory=list)
++    _cache: dict = field(default_factory=dict, repr=False)
++    forward_seconds: float = 0.
++    forward_calls: int = 0
++    processed_tiles: int = 0
++    peak_allocated_bytes: int = 0
++
++    def _memory(self):
++        import torch
++        if self.device.type != "cuda":
++            return {"free_bytes": None, "total_bytes": None, "available_allocator_bytes": None}
++        free, total = torch.cuda.mem_get_info(self.device)
++        allocated = torch.cuda.memory_allocated(self.device)
++        reserved = torch.cuda.memory_reserved(self.device)
++        peak = torch.cuda.max_memory_allocated(self.device)
++        self.peak_allocated_bytes = max(self.peak_allocated_bytes, int(peak))
++        return {"free_bytes": int(free), "total_bytes": int(total), "allocated_bytes": int(allocated),
++                "reserved_bytes": int(reserved), "available_allocator_bytes": int(free + max(0, reserved-allocated)),
++                "reserve_bytes": int(max(512 * 1024**2, total * .1)), "process_peak_allocated_bytes": int(peak)}
++
++    def _sync(self):
++        import torch
++        if self.device.type == "cuda":
++            torch.cuda.synchronize(self.device)
++        elif self.device.type == "mps":
++            torch.mps.synchronize()
++
++    def _clear_after_oom(self):
++        import torch
++        if self.device.type == "cuda":
++            with torch.cuda.device(self.device):
++                torch.cuda.empty_cache()
++        elif self.device.type == "mps":
++            torch.mps.empty_cache()
++
++    def _forward(self, model, make_batch, count):
++        import torch
++        with torch.inference_mode():
++            value = make_batch(count)
++            if value.device != self.device or value.dtype != torch.float32 or value.shape[0] != count:
++                raise RuntimeError("Inference batch must be FP32 on the selected execution device.")
++            result = model(value)
++            # Do not synchronize/reduce every numerical output here; downstream prediction
++            # retains its finite/shape contracts. Synchronization below bounds the timing.
++            self._sync()
++            return result
++
++    def _tune(self, model, make_batch, pending, key, check_cancel):
++        cap = min(self.max_batch_size, pending)
++        host = host_capacity()
++        # Host staging can hold a list, a stack and its transfer simultaneously.
++        # Leave >=80% of currently available host RAM for extraction/accumulators/IO.
++        bytes_per_tile = math.prod(key[1]) * 4 * 3
++        if host["available_ram_bytes"] is not None:
++            host_cap = int(host["available_ram_bytes"] * .2) // max(1, bytes_per_tile)
++            if host_cap < 1:
++                raise MemoryError("One inference tile exceeds the host staging allowance; use a smaller block/tile.")
++            cap = min(cap, host_cap)
++        record = {"tile_shape": list(key[1]), "available_tiles": pending, "trials": [],
++                  "memory_before": self._memory(), "precision": "unchanged_fp32_no_autocast",
++                  "host_before": host, "host_staging_bytes_per_tile_estimate": bytes_per_tile,
++                  "effective_probe_cap": cap,
++                  "warmup_forwards_per_candidate": 1, "timed_forwards_per_candidate": 1}
++        started = time.perf_counter()
++        if not self.autotune or cap == 1:
++            record.update(selected_batch=cap, reason="fixed_cap_or_single_tile", tuning_seconds=0.)
++        else:
++            per_item = None
++            for n in candidate_batches(cap):
++                check_cancel()
++                if record["trials"] and time.perf_counter()-started >= self.tuning_budget_seconds:
++                    record["stop_reason"] = "probe_time_budget"
++                    break
++                memory = self._memory()
++                usable = max(0, memory["available_allocator_bytes"]-memory["reserve_bytes"])
++                if n > 1 and per_item is not None and per_item*n > usable:
++                    record["stop_reason"] = "free_memory_headroom"
++                    break
++                failed = None
++                try:
++                    warm = self._forward(model, make_batch, n)
++                    del warm
++                    self._sync()
++                    then = time.perf_counter()
++                    output = self._forward(model, make_batch, n)
++                    elapsed = time.perf_counter()-then
++                    del output
++                    after = self._memory()
++                    # CUDA high-water is deliberately never reset (caller provenance keeps
++                    # its full-run peak). The resulting per-item estimate is conservative.
++                    cost = max(1, after["process_peak_allocated_bytes"]-memory["allocated_bytes"])
++                    per_item = max(per_item or 0, cost/n)
++                    record["trials"].append({"state": "measured", "batch_size": n,
++                                             "seconds": max(elapsed, 1e-9), "memory_after": after})
++                except RuntimeError as exc:
++                    if "out of memory" not in str(exc).lower():
++                        raise
++                    failed = str(exc)
++                    exc.__traceback__ = None
++                if failed is not None:
++                    self._clear_after_oom()
++                    record["trials"].append({"state": "cuda_oom", "batch_size": n, "message": failed})
++                    record["stop_reason"] = "probe_oom"
++                    if n == 1:
++                        self.decisions.append(record)
++                        raise RuntimeError("GPU inference cannot fit one tile. Use a smaller tile/block; no CPU fallback.")
++                    break
++            record.update(selected_batch=choose_batch(record["trials"]), reason="measured_forward_throughput",
++                          tuning_seconds=time.perf_counter()-started)
++        record["runtime_oom_retries"] = []
++        self.decisions.append(record)
++        self._cache[key] = record
++        return record
++
++    def run(self, model, make_batch, pending, tile_shape, check_cancel=lambda: None):
++        """Forward a batch; OOM halves before any tile is blended, never duplicating it."""
++        import torch
++        actual = next(model.parameters()).device
++        if actual != self.device or model.training:
++            raise RuntimeError("Inference policy requires its selected device and an eval-mode model.")
++        from .accel import autocast_enabled
++        if autocast_enabled(actual):
++            raise RuntimeError("Capacity-controlled inference preserves FP32; disable external autocast.")
++        key = (id(model), tuple(tile_shape))
++        record = self._cache.get(key)
++        if record is None or record["available_tiles"] < min(self.max_batch_size, pending):
++            record = self._tune(model, make_batch, pending, key, check_cancel)
++        count = min(int(record["selected_batch"]), pending)
++        while True:
++            check_cancel()
++            failed = None
++            try:
++                self._sync()
++                then = time.perf_counter()
++                output = self._forward(model, make_batch, count)
++                self.forward_seconds += time.perf_counter()-then
++                self.forward_calls += 1
++                self.processed_tiles += count
++                self._memory()
++                return output, count
++            except RuntimeError as exc:
++                if "out of memory" not in str(exc).lower() or self.device.type == "cpu":
++                    raise
++                failed = str(exc)
++                exc.__traceback__ = None
++            self._clear_after_oom()
++            if count == 1:
++                record["runtime_oom_retries"].append({"from_batch": 1, "to_batch": None, "message": failed})
++                raise RuntimeError("GPU inference exhausted memory at batch 1; no CPU fallback.")
++            smaller = max(1, count//2)
++            record["runtime_oom_retries"].append({"from_batch": count, "to_batch": smaller, "message": failed,
++                                                   "memory": self._memory()})
++            count = smaller
++            record["selected_batch"] = smaller
++
++    def to_dict(self):
++        return {"version": VERSION, "device": str(self.device), "mode": self.mode,
++                "input_shape": list(self.input_shape), "max_batch_size": self.max_batch_size,
++                "autotune": self.autotune, "cap_source": self.cap_source,
++                "initial_memory": self.initial_memory, "decisions": self.decisions,
++                "execution_host": self.host,
++                "forward_seconds_including_batch_transfer": self.forward_seconds,
++                "forward_calls": self.forward_calls, "processed_tiles": self.processed_tiles,
++                "process_peak_allocated_bytes": self.peak_allocated_bytes,
++                "tuning_seconds": sum(r.get("tuning_seconds", 0.) for r in self.decisions),
++                "timing_scope": "synchronized inference forwards; excludes blending, decoding and file IO",
++                "tile_geometry_changed": False,
++                "cpu_neural_execution": self.device.type == "cpu",
++                "cpu_neural_fallback": False if self.device.type != "cpu" else None,
++                "batch_numerics": "same per-sample operations; GPU batching may change floating-point rounding"}
++
++
++def select_inference_capacity(config, shape, device, *, max_batch_size=None, autotune=True):
++    """Inspect *this execution device*, not the saved training device or client GPU."""
++    import torch
++    actual = torch.device(device)
++    if actual.type == "cuda":
++        if not torch.cuda.is_available():
++            raise RuntimeError("Selected CUDA execution device is unavailable; no CPU fallback.")
++        actual = torch.device("cuda", torch.cuda.current_device() if actual.index is None else actual.index)
++    elif actual.type == "mps":
++        if not torch.backends.mps.is_available():
++            raise RuntimeError("Selected Apple GPU is unavailable; no CPU fallback.")
++        actual = torch.device(canonical_device_name(actual))
++    elif actual.type != "cpu":
++        raise ValueError("Unsupported inference device.")
++    settings = batch_settings(config.mode, actual.type, max_batch_size, autotune)
++    policy = InferenceCapacity(actual, config.mode, initial_memory={}, input_shape=tuple(shape), **settings)
++    policy.host = host_capacity()
++    policy.initial_memory = policy._memory()
++    if actual.type == "cuda":
++        policy.initial_memory["device_name"] = torch.cuda.get_device_name(actual)
++        policy.initial_memory["device_index"] = actual.index
++    return policy
+--- a/src/napari_label_workflow/nninteractive_client.py
++++ b/src/napari_label_workflow/nninteractive_client.py
+@@ -29,7 +29,7 @@
+                   "~/Library/Application Support/LabelWorkflow/tools and downloads PyTorch, nnInteractive and its model (about 1.8 GB). "
+                   "It runs on the Apple GPU.")
+ else:
+-    SETUP_HINT = (r'Set it up once (PowerShell):  py -3.12 -m venv "%LOCALAPPDATA%\LabelWorkflow\tools\nninteractive"; '
++    SETUP_HINT = (r'Set it up once (PowerShell):  py -3.12 -m venv "$env:LOCALAPPDATA\LabelWorkflow\tools\nninteractive"; '
+                   r'then install torch (cu126) and "nninteractive" into it and download the nnInteractive_v1.0 weights '
+                   r'from huggingface.co/nnInteractive/nnInteractive into ...\tools\nninteractive_weights.')
+ # Versions verified on Apple silicon (M-series, 2026-09-29): MPS 2.4 s per click, identical to CPU.
+--- a/src/napari_label_workflow/project_folders.py
++++ b/src/napari_label_workflow/project_folders.py
+@@ -22,7 +22,7 @@
+ 
+ FOLDERS = ("training_images", "training_labels", "training_outputs", "inference_outputs", "models")
+ ENGINE_MODULES = ("__init__.py", "models.py", "accel.py", "architectures.py", "auxiliary.py", "cuda_instances.py",
+-                  "training.py", "crops.py", "formats.py", "objects.py", "inference.py")
++                  "training.py", "crops.py", "formats.py", "objects.py", "inference.py", "inference_capacity.py")
+ BACKGROUND_STROKE = 65535          # Quick-strokes "definitely background" in the exported uint16 TIFF
+ 
+ 
+--- a/src/napari_label_workflow/remote.py
++++ b/src/napari_label_workflow/remote.py
+@@ -27,7 +27,7 @@
+ 
+ # accel.py: CUDA/Apple-GPU portable operators used by the instance decoder and auxiliary targets.
+ ENGINE_MODULES = ("models.py", "accel.py", "architectures.py", "auxiliary.py", "cuda_instances.py", "training.py",
+-                  "crops.py", "formats.py", "objects.py", "inference.py")
++                  "crops.py", "formats.py", "objects.py", "inference.py", "inference_capacity.py")
+ 
+ TRAIN_SCRIPT = '''"""Train a LTP model on this computer, then copy output/ back to the app.
+ 
+--- /dev/null
++++ b/src/napari_label_workflow/remote_inference.py
+@@ -0,0 +1,373 @@
++"""Versioned full-image GPU inference on a configured SSH workstation.
++
++The local app only prepares/copies files and receives outputs. Model loading,
++capacity selection and inference happen on the workstation. Cancellation writes
++an authenticated job-local sentinel; it never kills a process by name or PID.
++"""
++from __future__ import annotations
++
++import base64
++import hashlib
++import json
++import os
++from pathlib import Path, PurePosixPath, PureWindowsPath
++import queue
++import re
++import shutil
++import subprocess
++import threading
++import time
++from urllib.parse import unquote, urlsplit
++import uuid
++
++
++PROTOCOL = "ltp-remote-full-image-v1"
++
++
++def _device_request(value):
++    value = str(value or "auto").strip().lower()
++    if value not in ("auto", "cuda", "mps") and not re.fullmatch(r"cuda:\d+", value):
++        raise ValueError("Remote inference requires a GPU; choose auto, CUDA or Apple MPS, not CPU.")
++    return value
++
++
++def _sha(path):
++    digest = hashlib.sha256()
++    with Path(path).open("rb") as stream:
++        for block in iter(lambda: stream.read(1024 * 1024), b""):
++            digest.update(block)
++    return digest.hexdigest()
++
++
++def _write(path, value):
++    path = Path(path); temporary = path.with_suffix(path.suffix + ".part")
++    temporary.write_text(json.dumps(value, indent=2), encoding="utf-8")
++    temporary.replace(path)
++
++
++def _checked_relative(text):
++    if not isinstance(text, str):
++        raise ValueError("Unsafe path in the remote inference manifest.")
++    path = PurePosixPath(text)
++    if ("\\" in text or path.is_absolute() or PureWindowsPath(text).drive or not path.parts
++            or any(x in ("", ".", "..") or ":" in x for x in path.parts)):
++        raise ValueError("Unsafe path in the remote inference manifest.")
++    return path
++
++
++def _source_parts(source, workstation, source_is_remote):
++    """Keep the selected series; SSH paths must name this exact workstation."""
++    text = str(source)
++    if text.startswith("ssh://"):
++        parsed = urlsplit(text)
++        if parsed.netloc != workstation.target or parsed.query or parsed.fragment:
++            raise ValueError("The image SSH address must match the selected workstation exactly.")
++        text = unquote(parsed.path); source_is_remote = True
++    path, series = text.rsplit("::", 1) if "::" in text else (text, None)
++    if not path or any(c in path for c in ("\x00", "\r", "\n")):
++        raise ValueError("Invalid image path.")
++    if source_is_remote and not (PurePosixPath(path).is_absolute() or PureWindowsPath(path).is_absolute()):
++        raise ValueError("Use an absolute image path on the workstation.")
++    if series is not None and (not series or any(c in series for c in ("/", "\\", "\x00", "\n", "\r"))):
++        raise ValueError("Invalid image-series selector.")
++    return path, series, bool(source_is_remote)
++
++
++def _image_files(path):
++    path = Path(path)
++    if not path.is_file():
++        raise ValueError(f"Image file does not exist: {path}")
++    files = [path]
++    if path.suffix.lower() == ".oif":
++        companion = Path(str(path) + ".files")
++        if not companion.is_dir():
++            raise ValueError("An OIF image requires its adjacent .oif.files folder.")
++        files += sorted(p for p in companion.rglob("*") if p.is_file())
++    return files
++
++
++def prepare_package(ws, checkpoint, source, output_root, *, source_is_remote=False, **options):
++    """Snapshot files only. This function never imports PyTorch or executes a model."""
++    from .remote import ENGINE_MODULES
++    requested_device = _device_request(ws.device)
++    checkpoint = Path(checkpoint).resolve()
++    if not checkpoint.is_file():
++        raise ValueError("Choose an existing model checkpoint.")
++    source_path, series, remote_source = _source_parts(source, ws, source_is_remote)
++    job_id = uuid.uuid4().hex
++    package = Path(output_root).resolve()/".remote_jobs"/("inference_" + job_id)
++    package.mkdir(parents=True, exist_ok=False)
++    engine = package/"label_workflow_engine"; engine.mkdir()
++    here = Path(__file__).resolve().parent
++    for name in ENGINE_MODULES:
++        shutil.copy2(here/name, engine/name)
++    (engine/"__init__.py").write_text('"""Pinned LTP inference engine."""\n', encoding="utf-8")
++    shutil.copy2(__file__, package/"worker.py")
++    checkpoint_before = _sha(checkpoint)
++    shutil.copy2(checkpoint, package/"model.pt")
++    if checkpoint_before != _sha(checkpoint) or checkpoint_before != _sha(package/"model.pt"):
++        raise RuntimeError("Checkpoint changed while making the remote snapshot.")
++    original_hashes = {}
++    if remote_source:
++        worker_source = source_path
++    else:
++        source_file = Path(source_path).resolve()
++        inputs = package/"input"; inputs.mkdir()
++        for path in _image_files(source_file):
++            rel = path.relative_to(source_file.parent)
++            target = inputs/rel; target.parent.mkdir(parents=True, exist_ok=True)
++            before = _sha(path); shutil.copy2(path, target)
++            if before != _sha(path) or before != _sha(target):
++                raise RuntimeError("Image changed while making the remote snapshot.")
++            original_hashes[str(path)] = before
++        worker_source = "input/" + source_file.name
++    pins = {p.relative_to(package).as_posix(): _sha(p) for p in sorted(package.rglob("*")) if p.is_file()}
++    manifest = {"protocol": PROTOCOL, "job_id": job_id, "created_unix": time.time(),
++                "files_sha256": pins, "checkpoint_sha256": checkpoint_before,
++                "source": {"path": worker_source, "series": series, "remote_existing": remote_source,
++                           "original": str(source), "local_source_sha256": original_hashes},
++                "options": options, "require_gpu": True, "cpu_fallback": False, "requested_device": requested_device,
++                "workstation": {"target": ws.target, "os": ws.os}}
++    _write(package/"manifest.json", manifest)
++    return package, manifest
++
++
++def _verify_package(root, job_id, manifest_sha, *, verify_inputs=True):
++    if not len(job_id) == 32 or any(c not in "0123456789abcdef" for c in job_id):
++        raise ValueError("Invalid inference job identity.")
++    if _sha(root/"manifest.json") != manifest_sha:
++        raise RuntimeError("Remote inference manifest differs from the submitted job.")
++    manifest = json.loads((root/"manifest.json").read_text(encoding="utf-8"))
++    if manifest.get("protocol") != PROTOCOL or manifest.get("job_id") != job_id or manifest.get("require_gpu") is not True:
++        raise RuntimeError("Remote inference job contract differs.")
++    pins = manifest.get("files_sha256")
++    if not isinstance(pins, dict) or not {"worker.py", "model.pt", "label_workflow_engine/inference.py"} <= set(pins):
++        raise RuntimeError("Incomplete remote inference package.")
++    for name, digest in pins.items():
++        if not verify_inputs and name != "worker.py":
++            continue
++        path = root/str(_checked_relative(name))
++        if not path.is_file() or path.is_symlink() or _sha(path) != digest:
++            raise RuntimeError("Remote input/source differs: " + name)
++    return manifest
++
++
++class _CancelFile:
++    def __init__(self, path): self.path = path
++    def is_set(self): return self.path.exists()
++
++
++def _select_remote_gpu(requested="auto"):
++    """Probe this process's workstation, never the originating computer."""
++    import torch
++    requested = _device_request(requested)
++    devices = []
++    if requested != "mps" and torch.cuda.is_available():
++        for index in range(torch.cuda.device_count()):
++            free, total = torch.cuda.mem_get_info(index)
++            devices.append({"index": index, "name": torch.cuda.get_device_name(index),
++                            "free_bytes": int(free), "total_bytes": int(total)})
++        if requested.startswith("cuda:"):
++            index = int(requested.split(":")[1])
++            if index >= len(devices): raise RuntimeError("The requested workstation CUDA device does not exist.")
++            chosen = devices[index]
++        else:
++            chosen = max(devices, key=lambda item: (item["free_bytes"], -item["index"]))
++        torch.cuda.set_device(chosen["index"])
++        return "cuda:" + str(chosen["index"]), {"method": "explicit_cuda_index" if requested.startswith("cuda:") else "largest_current_free_cuda_memory", "devices": devices,
++                                                "requested_device": requested,
++                                                "selected": chosen, "probed_on": "remote_worker"}
++    mps = getattr(torch.backends, "mps", None)
++    if requested in ("auto", "mps") and mps is not None and mps.is_available():
++        return "mps", {"method": "available_apple_gpu", "requested_device": requested, "probed_on": "remote_worker", "cuda_devices": []}
++    raise RuntimeError("The workstation has no supported GPU. Remote neural inference never falls back to CPU.")
++
++
++def worker(root, job_id, manifest_sha, action="run"):
++    """Run only in the selected workstation interpreter; cancel is framework-free."""
++    root = Path(root).resolve()
++    manifest = _verify_package(root, job_id, manifest_sha, verify_inputs=action != "cancel")
++    if action == "cancel":
++        _write(root/"CANCEL.json", {"job_id": job_id, "manifest_sha256": manifest_sha})
++        return
++    # Exclusive creation prevents duplicate execution, including after interruption.
++    with (root/"STARTED.json").open("x", encoding="utf-8") as stream:
++        json.dump({"job_id": job_id, "pid": os.getpid(), "started_unix": time.time()}, stream)
++    cancel = _CancelFile(root/"CANCEL.json")
++    try:
++        if cancel.is_set(): raise RuntimeError("Remote inference cancelled before model loading.")
++        import sys
++        sys.path.insert(0, str(root))
++        from label_workflow_engine.inference import run_full_image
++        device, selection = _select_remote_gpu(manifest["requested_device"])
++        source = manifest["source"]
++        path = Path(source["path"]) if source["remote_existing"] else root/str(_checked_relative(source["path"]))
++        before = {str(p): _sha(p) for p in _image_files(path)}
++        selected_source = str(path) + ("::" + source["series"] if source["series"] else "")
++        def progress(event):
++            print("LWPROGRESS " + json.dumps(event), flush=True)
++        report = run_full_image(root/"model.pt", selected_source, root/"results", cache_dir=root/"cache",
++                                progress=progress, cancel=cancel, device_override=device, require_gpu=True,
++                                **manifest["options"])
++        if cancel.is_set(): raise RuntimeError("Remote inference cancelled; outputs remain unreviewed and incomplete.")
++        after = {str(p): _sha(p) for p in _image_files(path)}
++        if before != after: raise RuntimeError("Remote image changed during inference.")
++        _verify_package(root, job_id, manifest_sha)
++        folder = Path(report["folder"])
++        report["remote_execution"] = {"protocol": PROTOCOL, "job_id": job_id, "manifest_sha256": manifest_sha,
++                                      "workstation": manifest["workstation"], "gpu_selection": selection,
++                                      "source_sha256_before": before, "source_sha256_after": after,
++                                      "engine_and_inputs_unchanged": True, "cpu_neural_fallback": False,
++                                      "checkpoint_sha256": manifest["checkpoint_sha256"],
++                                      "source_is_remote": bool(source["remote_existing"]),
++                                      "requested_source": source["original"], "remote_folder": str(folder)}
++        _write(folder/"report.json", report)
++        outputs = {p.relative_to(root).as_posix(): _sha(p) for p in sorted(folder.iterdir()) if p.is_file()}
++        completion = {"state": "completed", "job_id": job_id, "manifest_sha256": manifest_sha,
++                      "report_file": (folder/"report.json").relative_to(root).as_posix(), "files_sha256": outputs,
++                      "source_and_inputs_unchanged": True, "reviewed": False}
++        _write(root/"completion.json", completion)
++        print("LWDONE " + job_id, flush=True)
++    except BaseException as exc:
++        _write(root/"failure.json", {"state": "cancelled" if cancel.is_set() else "failed", "job_id": job_id,
++                                   "message": str(exc), "exception": type(exc).__name__})
++        raise
++
++
++def _python(ws):
++    from .remote_ssh import _q
++    if ws.folder_path().startswith("~"):
++        raise ValueError("Use an absolute workstation working-folder path instead of '~' (for example /home/you/labelworkflow).")
++    executable = ws.python or ("python" if ws.windows else "python3")
++    if any(c in executable + ws.folder_path() for c in ("\n", "\r", "\x00")):
++        raise ValueError("Invalid workstation Python path.")
++    if ws.windows and any(c in executable + ws.folder_path() for c in '%!&|<>^"'):
++        raise ValueError("Workstation Windows paths contain unsupported command-shell characters.")
++    if not ws.windows and executable.startswith("~/"):
++        return '"$HOME"/' + _q(ws, executable[2:])
++    return _q(ws, executable)
++
++
++def _command(ws, remote_job, job_id, digest, action="run"):
++    from .remote_ssh import _q
++    return f"{_python(ws)} -u {_q(ws, remote_job + '/worker.py')} --action {action} --job-id {job_id} --manifest-sha256 {digest}"
++
++
++def _validate_completion(completion, manifest, manifest_sha):
++    if completion.get("state") != "completed" or completion.get("job_id") != manifest["job_id"] or completion.get("manifest_sha256") != manifest_sha or completion.get("source_and_inputs_unchanged") is not True or completion.get("reviewed") is not False:
++        raise RuntimeError("Remote inference completion does not match this unreviewed job.")
++    pins = completion.get("files_sha256")
++    if not isinstance(pins, dict) or not pins or completion.get("report_file") not in pins:
++        raise RuntimeError("Remote completion is missing output hashes.")
++    report_path = _checked_relative(completion["report_file"])
++    if report_path.parts[0] != "results" or len(report_path.parts) != 3 or report_path.name != "report.json":
++        raise RuntimeError("Unexpected remote result folder.")
++    for name in pins:
++        path = _checked_relative(name)
++        if path.parent != report_path.parent:
++            raise RuntimeError("Remote output is outside its unique result folder.")
++    return report_path
++
++
++def _validate_report(report, completion, manifest, digest):
++    execution = report.get("remote_execution", {})
++    capacity = report.get("inference_capacity") or {}
++    device = str(report.get("inference_device", ""))
++    if (report.get("status") != "unreviewed_model_prediction" or report.get("reviewed") is not False
++            or execution.get("job_id") != manifest["job_id"] or execution.get("manifest_sha256") != digest
++            or execution.get("engine_and_inputs_unchanged") is not True or execution.get("cpu_neural_fallback") is not False
++            or report.get("checkpoint_sha256") != manifest["checkpoint_sha256"]
++            or execution.get("checkpoint_sha256") != manifest["checkpoint_sha256"]
++            or device.split(":")[0] not in ("cuda", "mps") or capacity.get("device") != device
++            or capacity.get("cpu_neural_fallback") is not False or report.get("gpu_required_for_execution") is not True):
++        raise RuntimeError("Downloaded prediction GPU/checkpoint provenance is invalid.")
++    names = {PurePosixPath(name).name for name in completion["files_sha256"]}
++    declared = report.get("files")
++    if not isinstance(declared, list) or not declared or not set(declared) <= names or not {"report.json", "volumes.csv"} <= names:
++        raise RuntimeError("Downloaded prediction is missing declared outputs.")
++    if not ({"objects.tif", "objects.csv"} <= names or "labels.tif" in names):
++        raise RuntimeError("Downloaded prediction has no segmentation output.")
++    if manifest["options"].get("save_probability") and "probability.tif" not in names:
++        raise RuntimeError("Downloaded prediction is missing its requested probability map.")
++
++
++def run_full_image_remote(ws, checkpoint, source, output_root, *, axes=None, tta=False, save_probability=True,
++                          decoder_overrides=None, channel_map=None, normalization_override=None,
++                          progress=None, cancel=None, source_is_remote=False):
++    """SSH full-image inference; returns a report with its verified LOCAL output folder."""
++    from .remote_ssh import _q, _remote, _run, ssh_args, scp_args
++    ws.validate(); _python(ws)
++    emit = progress or (lambda event: None)
++    if cancel is not None and cancel.is_set(): raise RuntimeError("Remote inference cancelled.")
++    emit({"phase": "Preparing remote inference", "message": "Snapshotting checkpoint and image; no local model execution."})
++    package, manifest = prepare_package(ws, checkpoint, source, output_root, source_is_remote=source_is_remote,
++                                        axes=axes, tta=bool(tta), save_probability=bool(save_probability),
++                                        decoder_overrides=decoder_overrides, channel_map=channel_map,
++                                        normalization_override=normalization_override)
++    digest = _sha(package/"manifest.json"); job_id = manifest["job_id"]
++    remote_job = _remote(ws, package.name)
++    # Exclusive remote directory creation. Encoded Python avoids shell interpolation of paths.
++    code = f"from pathlib import Path;p=Path({remote_job!r});p.parent.mkdir(parents=True,exist_ok=True);p.mkdir(exist_ok=False)"
++    encoded = base64.b64encode(code.encode()).decode()
++    bootstrap = "import base64;exec(base64.b64decode('" + encoded + "'))"
++    _run(ssh_args(ws, _python(ws) + " -c " + _q(ws, bootstrap)), timeout=90)
++    emit({"phase": f"Uploading inference package to {ws.host}", "message": package.name})
++    _run(scp_args(ws, [str(package)], f"{ws.target}:{ws.folder_path()}/"), timeout=3600)
++    if cancel is not None and cancel.is_set(): raise RuntimeError("Remote inference cancelled before launch; uploaded snapshot retained.")
++    process = subprocess.Popen(ssh_args(ws, _command(ws, remote_job, job_id, digest)), stdout=subprocess.PIPE,
++                               stderr=subprocess.STDOUT, text=True, bufsize=1)
++    events = queue.Queue(); sentinel = object()
++    def read():
++        try:
++            for line in process.stdout: events.put(line)
++        finally: events.put(sentinel)
++    threading.Thread(target=read, daemon=True).start()
++    lines = []; completed = False; cancel_sent = False
++    with (package/"transport.log").open("w", encoding="utf-8") as log:
++        while True:
++            if cancel is not None and cancel.is_set() and not cancel_sent:
++                # Only this UUID's checked worker can create its own cancellation sentinel.
++                _run(ssh_args(ws, _command(ws, remote_job, job_id, digest, "cancel")), timeout=90)
++                cancel_sent = True
++                emit({"phase": "Cancelling remote inference", "message": "Waiting for this job's current GPU operation to finish."})
++            try: event = events.get(timeout=.25)
++            except queue.Empty: continue
++            if event is sentinel: break
++            line = event.strip(); log.write(event); log.flush()
++            lines.append(line); lines = lines[-40:]
++            if line.startswith("LWPROGRESS "):
++                try:
++                    info = json.loads(line[len("LWPROGRESS "):]); info["phase"] = f"{info.get('phase', 'Inference')} (on {ws.host})"; emit(info)
++                except (ValueError, TypeError): pass
++            if line == "LWDONE " + job_id: completed = True
++    code = process.wait()
++    if cancel_sent or (cancel is not None and cancel.is_set()):
++        raise RuntimeError("Remote inference cancelled; the remote job snapshot is retained.")
++    if code != 0 or not completed:
++        raise RuntimeError(f"Remote inference failed on {ws.host}; job {remote_job}:\n" + "\n".join(lines[-12:]))
++    emit({"phase": f"Downloading inference outputs from {ws.host}", "message": "Verifying every returned file."})
++    _run(scp_args(ws, [f"{ws.target}:{remote_job}/completion.json"], str(package/"completion.json")), timeout=1800)
++    completion = json.loads((package/"completion.json").read_text(encoding="utf-8"))
++    report_path = _validate_completion(completion, manifest, digest)
++    local = Path(output_root).resolve()/("remote_" + job_id); local.mkdir(exist_ok=False)
++    for name, expected in completion["files_sha256"].items():
++        target = local/PurePosixPath(name).name
++        _run(scp_args(ws, [f"{ws.target}:{remote_job}/{name}"], str(target)), timeout=3600)
++        if _sha(target) != expected: raise RuntimeError("Downloaded output differs from remote receipt: " + name)
++    report = json.loads((local/report_path.name).read_text(encoding="utf-8"))
++    _validate_report(report, completion, manifest, digest)
++    # Preserve the exact remote report and receipt; local path lives only in the returned view/receipt.
++    _write(local/"download_receipt.json", {"job_id": job_id, "manifest_sha256": digest, "completion": completion,
++                                          "remote_job": remote_job, "local_folder": str(local), "verified": True})
++    report["remote_folder"] = report["folder"]; report["folder"] = str(local)
++    return report
++
++
++if __name__ == "__main__":
++    import argparse
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--action", choices=("run", "cancel"), default="run")
++    parser.add_argument("--job-id", required=True)
++    parser.add_argument("--manifest-sha256", required=True)
++    args = parser.parse_args()
++    worker(Path(__file__).resolve().parent, args.job_id, args.manifest_sha256, args.action)
+--- a/src/napari_label_workflow/training.py
++++ b/src/napari_label_workflow/training.py
+@@ -1076,7 +1076,7 @@
+     return sorted(set([*range(0, n-patch+1, max(1,patch//2)), n-patch]))
+ 
+ 
+-def _predict_tiled_cuda(model, image, c, progress, cancel, only_z):
++def _predict_tiled_cuda(model, image, c, progress, cancel, only_z, inference_policy=None):
+     """Instance-only GPU (CUDA or Apple MPS) tiling; full-block arrays stay on device until caller IO."""
+     from .auxiliary import extract
+     device = next(model.parameters()).device
+@@ -1101,32 +1101,45 @@
+         tiles = [(z, y, x) for z in _starts(shape[0], p[0]) if any(z <= q < z+p[0] for q in zs)
+                  for y in _starts(shape[1], p[1]) for x in _starts(shape[2], p[2])]
+     chosen = image[c.channels]   # once per block (was a whole-block copy for every tile)
++    from .inference_capacity import select_inference_capacity
++    policy = inference_policy or select_inference_capacity(c, image.shape, device)
++
++    def cut(start):
++        if c.mode == "2.5d":
++            indices = torch.arange(start[0]-c.context//2, start[0]+c.context//2+1, device=device).clamp(0, shape[0]-1)
++            # Extract the small spatial window before selecting context planes.
++            window = chosen[..., start[1]:min(start[1]+p[1], shape[1]), start[2]:min(start[2]+p[2], shape[2])]
++            context = window[:, indices].reshape(len(c.channels)*c.context, 1, *window.shape[-2:])
++            patch = extract(context, (0, 0, 0), (1, *p[1:]))[:, 0]
++            region = (slice(start[0], start[0]+1), *[slice(s, min(s+k, n)) for s,k,n in zip(start[1:], p[1:], shape[1:])])
++        else:
++            patch = extract(chosen, start, p)
++            region = tuple(slice(s, min(s+k, n)) for s,k,n in zip(start, p, shape))
++        return patch, region
++
++    done = 0
+     with torch.inference_mode():
+-        for index, start in enumerate(tiles):
++        while done < len(tiles):
+             _check_cancel(cancel)
+-            if c.mode == "2.5d":
+-                indices = torch.arange(start[0]-c.context//2, start[0]+c.context//2+1, device=device).clamp(0, shape[0]-1)
+-                context = chosen[:, indices].reshape(len(c.channels)*c.context, 1, *shape[1:])
+-                patch = extract(context, (0, *start[1:]), (1, *p[1:]))[:, 0]
+-                region = (slice(start[0], start[0]+1), *[slice(s, min(s+k, n)) for s,k,n in zip(start[1:], p[1:], shape[1:])])
+-            else:
+-                patch = extract(chosen, start, p)
+-                region = tuple(slice(s, min(s+k, n)) for s,k,n in zip(start, p, shape))
+-            try:
+-                out = model(patch[None])
+-            except RuntimeError as exc:
+-                if "out of memory" in str(exc).lower():
+-                    raise RuntimeError("GPU prediction memory exhausted; choose a smaller block. No CPU fallback.") from exc
+-                raise
+-            q = out["logits"].softmax(1)[0]
+-            h = torch.cat([out[key][0] for key in ("distance", "boundary")])
+-            if c.mode == "2.5d": q, h = q[:, None], h[:, None]
+-            crop = tuple(slice(0, s.stop-s.start) for s in region)
+-            w = weights[crop]
+-            prob[(slice(None), *region)] += q[(slice(None), *crop)] * w
+-            heads[(slice(None), *region)] += h[(slice(None), *crop)] * w
+-            count[region] += w
+-            _emit(progress, phase="prediction", step=index+1, total=len(tiles))
++            def make_batch(n):
++                return torch.stack([cut(start)[0] for start in tiles[done:done+n]])
++            tile_shape = (len(c.channels)*(c.context if c.mode == "2.5d" else 1), *(p[1:] if c.mode == "2.5d" else p))
++            out, used = policy.run(model, make_batch, len(tiles)-done, tile_shape, lambda: _check_cancel(cancel))
++            qs = out["logits"].softmax(1)
++            hs = torch.cat([out[key] for key in ("distance", "boundary")], 1)
++            for index, start in enumerate(tiles[done:done+used]):
++                region = ((slice(start[0], start[0]+1), *[slice(s, min(s+k, n)) for s,k,n in zip(start[1:], p[1:], shape[1:])])
++                          if c.mode == "2.5d" else tuple(slice(s, min(s+k, n)) for s,k,n in zip(start, p, shape)))
++                q, h = qs[index], hs[index]
++                if c.mode == "2.5d": q, h = q[:, None], h[:, None]
++                crop = tuple(slice(0, s.stop-s.start) for s in region)
++                w = weights[crop]
++                prob[(slice(None), *region)] += q[(slice(None), *crop)] * w
++                heads[(slice(None), *region)] += h[(slice(None), *crop)] * w
++                count[region] += w
++            del out, qs, hs, q, h
++            done += used
++            _emit(progress, phase="prediction", step=done, total=len(tiles), inference_batch=used)
+     prob /= count.clamp_min(1e-6)[None]
+     heads /= count.clamp_min(1e-6)[None]
+     if only_z is not None:
+@@ -1135,8 +1148,13 @@
+     return prob, heads
+ 
+ 
+-def _predict_tiled(model, image, c, progress, cancel, only_z):
++def _predict_tiled(model, image, c, progress, cancel, only_z, inference_policy=None):
+     shape = image.shape[1:]
++    from .inference_capacity import host_capacity
++    available = host_capacity()["available_ram_bytes"]
++    accumulator_bytes = math.prod(shape) * 4 * (c.classes+2+(2 if c.instance else 0))
++    if available is not None and accumulator_bytes > available * .5:
++        raise MemoryError("Prediction accumulators exceed half the available host RAM; use bounded full-image blocks.")
+     prob = np.zeros((c.classes+1,*shape), np.float32)
+     heads = np.zeros((2,*shape), np.float32) if c.instance else None
+     count = np.zeros(shape, np.float32)
+@@ -1151,10 +1169,8 @@
+         tiles = [(z,y,x) for z in zstarts if any(z <= q < z+p[0] for q in zs)
+                  for y in _starts(shape[1],p[1]) for x in _starts(shape[2],p[2])]
+     device = next(model.parameters()).device
+-    # 2.5D tiles are small for a GPU: one at a time leaves it mostly waiting. Batching them is ~3× faster on an
+-    # Apple GPU (7 → 22 Mvoxel/s measured, ~1 GB) with the same maths (GroupNorm is per tile). 3D tiles already
+-    # saturate the GPU — larger batches were measured slower — so they stay one at a time.
+-    batch = int(os.environ.get("LABEL_WORKFLOW_PREDICT_BATCH", 0) or (8 if c.mode == "2.5d" and device.type != "cpu" else 1))
++    from .inference_capacity import select_inference_capacity
++    policy = inference_policy or select_inference_capacity(c, image.shape, device)
+ 
+     planes = {}   # the context stack of the current slice, built once and cut for all of its tiles (was: once per tile)
+ 
+@@ -1169,32 +1185,19 @@
+             region = tuple(slice(s,min(s+k,n)) for s,k,n in zip(start,p,shape))
+         return patch, region
+ 
+-    def run(patches):
+-        nonlocal model, device, batch
+-        while True:
+-            try:
+-                return model(torch.as_tensor(np.stack(patches),device=device).float())
+-            except RuntimeError as exc:
+-                if "out of memory" not in str(exc).lower() or device.type == "cpu": raise
+-                if len(patches) > 1:   # halve the batch before anything else
+-                    batch = max(1, len(patches) // 2)
+-                    parts = [run(patches[:batch]), run(patches[batch:])]
+-                    return {k: torch.cat([part[k] for part in parts]) for k in parts[0]}
+-                if c.instance:
+-                    raise RuntimeError("GPU instance prediction ran out of memory; use a smaller prediction block. No CPU fallback.") from exc
+-                model = model.cpu(); device = torch.device("cpu")
+-                if torch.cuda.is_available(): torch.cuda.empty_cache()
+-                _emit(progress,phase="prediction",message="Accelerator memory limit: continuing tiles on CPU.")
+-
+     done = 0
+     with torch.inference_mode():
+         while done < len(tiles):
+             _check_cancel(cancel)
+-            group = [cut(start) for start in tiles[done:done+batch]]
+-            out = run([patch for patch, _ in group])
++            def make_batch(n):
++                return torch.as_tensor(np.stack([cut(start)[0] for start in tiles[done:done+n]]), device=device).float()
++            tile_shape = (len(c.channels)*(c.context if c.mode == "2.5d" else 1), *(p[1:] if c.mode == "2.5d" else p))
++            out, used = policy.run(model, make_batch, len(tiles)-done, tile_shape, lambda: _check_cancel(cancel))
+             qs = out["logits"].softmax(1).cpu().numpy()
+             hs = torch.cat([out[k] for k in ("distance","boundary")], 1).cpu().numpy() if c.instance else None
+-            for j, (_, region) in enumerate(group):
++            for j, start in enumerate(tiles[done:done+used]):
++                region = ((slice(start[0], start[0]+1), *[slice(s, min(s+k, n)) for s,k,n in zip(start[1:], p[1:], shape[1:])])
++                          if c.mode == "2.5d" else tuple(slice(s, min(s+k, n)) for s,k,n in zip(start, p, shape)))
+                 q = qs[j]; h = hs[j] if hs is not None else None
+                 if c.mode == "2.5d":
+                     q = q[:,None]
+@@ -1204,8 +1207,9 @@
+                 prob[(slice(None),*region)] += q[(slice(None),*crop)] * w
+                 count[region] += w
+                 if heads is not None: heads[(slice(None),*region)] += h[(slice(None),*crop)] * w
+-            done += len(group)
+-            _emit(progress, phase="prediction",step=done,total=len(tiles))
++            del out, qs, hs
++            done += used
++            _emit(progress, phase="prediction",step=done,total=len(tiles), inference_batch=used)
+     prob /= np.maximum(count,1e-6)[None]
+     if heads is not None: heads /= np.maximum(count,1e-6)[None]
+     if only_z is not None:
+@@ -1289,14 +1293,24 @@
+         return result
+ 
+ 
+-def load_model(payload, c):
++def load_model(payload, c, *, device_override=None, require_gpu=False):
+     """Strict saved architecture/head loading; instance inference requires a GPU (CUDA or Apple MPS).
+ 
+     A legacy checkpoint's CPU device is deployment metadata, not its architecture:
+     instance weights are loaded onto the GPU, or fail before any neural forward.
+     """
+     _validate_config(c)
+-    if c.instance:
++    if device_override is not None:
++        from .accel import accelerator
++        requested = torch.device(device_override)
++        if requested.type not in ("cuda", "mps"):
++            raise ValueError("An execution device override must name a GPU; no CPU fallback.")
++        if requested.type == "cuda" and not torch.cuda.is_available():
++            raise RuntimeError("Requested execution CUDA device unavailable; no CPU fallback.")
++        if requested.type == "mps" and not torch.backends.mps.is_available():
++            raise RuntimeError("Requested execution Apple GPU unavailable; no CPU fallback.")
++        device = accelerator(str(requested))
++    elif c.instance or require_gpu:
+         device = _instance_device(c)
+     else:
+         try: device = _device(c.device)
+@@ -1335,10 +1349,14 @@
+     return model, metric, [m.state_dict() for m in members]
+ 
+ 
+-def predict_loaded(model, c, image, tta=False, progress=None, cancel=None, only_z=None, return_cuda=False):
++def predict_loaded(model, c, image, tta=False, progress=None, cancel=None, only_z=None, return_cuda=False, *, inference_policy=None, require_gpu=False):
+     """Probabilities (and instance heads) for a normalized CZYX array with an already-loaded model."""
+-    if c.instance and not _is_gpu_name(next(model.parameters()).device):
+-        raise RuntimeError("Instance prediction requires a GPU model (CUDA or Apple MPS); no CPU neural fallback.")
++    if (c.instance or require_gpu) and not _is_gpu_name(next(model.parameters()).device):
++        raise RuntimeError("Prediction requires a GPU model (CUDA or Apple MPS); no CPU neural fallback.")
++    from .inference_capacity import select_inference_capacity
++    policy = inference_policy or select_inference_capacity(c, image.shape, next(model.parameters()).device)
++    if policy.mode != c.mode:
++        raise ValueError("Inference capacity mode disagrees with the checkpoint model mode.")
+     if c.instance:
+         from .cuda_instances import MAX_DECODE_VOXELS
+         if math.prod(image.shape[1:]) > MAX_DECODE_VOXELS:
+@@ -1355,7 +1373,7 @@
+             _check_cancel(cancel)
+             _emit(progress, phase="tta", view=index+1, views=len(views))
+             axes = tuple(axis for flag, axis in ((fy, -2), (fx, -1)) if flag)
+-            p, h = _predict_tiled_cuda(model, image.flip(axes) if axes else image, c, progress, cancel, only_z)
++            p, h = _predict_tiled_cuda(model, image.flip(axes) if axes else image, c, progress, cancel, only_z, policy)
+             if axes: p, h = p.flip(axes), h.flip(axes)
+             probabilities = p/len(views) if probabilities is None else probabilities + p/len(views)
+             heads = h/len(views) if heads is None else heads + h/len(views)
+@@ -1366,6 +1384,7 @@
+             probabilities, heads = grow(probabilities), grow(heads)
+         probabilities.clamp_(0, 1)
+         heads.clamp_(0, 1)
++        _emit(progress, phase="inference capacity", inference_capacity=policy.to_dict())
+         if return_cuda:
+             return probabilities, heads
+         return probabilities.cpu().numpy(), heads.cpu().numpy()
+@@ -1379,7 +1398,7 @@
+     for index,(fy,fx) in enumerate(views):
+         _check_cancel(cancel)
+         _emit(progress,phase="tta",view=index+1,views=len(views))
+-        p,h = _predict_tiled(model,xy_transform(image,fy,fx),c,progress,cancel,only_z)
++        p,h = _predict_tiled(model,xy_transform(image,fy,fx),c,progress,cancel,only_z,policy)
+         p = xy_transform(p,fy,fx)
+         probabilities = p/len(views) if probabilities is None else probabilities+p/len(views)
+         if h is not None:
+@@ -1388,6 +1407,7 @@
+     if f > 1:
+         probabilities = grow_xy(probabilities, f, full_yx)   # bilinear weights sum to 1: still a distribution
+         if heads is not None: heads = grow_xy(heads, f, full_yx)
++    _emit(progress, phase="inference capacity", inference_capacity=policy.to_dict())
+     return probabilities, heads
+ 
+ 
+--- a/src/napari_label_workflow/update_panel.py
++++ b/src/napari_label_workflow/update_panel.py
+@@ -1,4 +1,4 @@
+-"""Update button, Help → Check for updates…, and the quiet startup check (Mac app only)."""
++"""Update button and startup notice; signed app updates on Mac, release page elsewhere."""
+ from __future__ import annotations
+ 
+ import os
+@@ -14,7 +14,9 @@
+ 
+ 
+ class _Relay(QObject):
+-    checked = Signal(object, bool)
++    # Preserve False/manual, True/periodic and 'announce'/startup across the Qt thread boundary.
++    # A Boolean signal coerces 'announce' and bypasses the startup busy guard.
++    checked = Signal(object, object)
+ 
+ 
+ class UpdateControls:
+@@ -26,7 +28,7 @@
+         self.app = updater.running_app()
+         QTimer.singleShot(0, self._add_menu)
+         if self._should_check():
+-            # Every start (a small request; skipped only within 30 min of the last check), then every 3 h while open.
++            # Every start, then every 3 h while open. Announce at startup only if the UI is idle.
+             QTimer.singleShot(4000, lambda: self.check(quiet=True, announce=True))   # every start: popup if newer
+             self.timer = QTimer(workflow); self.timer.setInterval(3 * 3600 * 1000)
+             self.timer.timeout.connect(lambda: self.check(quiet=True)); self.timer.start()
+--- a/src/napari_label_workflow/updater.py
++++ b/src/napari_label_workflow/updater.py
+@@ -29,7 +29,16 @@
+ APP_NAME = "LTP.app"
+ APP_NAMES = (APP_NAME, "Label Workflow.app")   # releases before 0.2.2 were called Label Workflow
+ FEED_NAME = "latest.json"
+-SUPPORT = Path.home() / "Library" / "Application Support" / "LabelWorkflow"
++def support_directory() -> Path:
++    """Use the platform's existing LTP settings location; keep the Mac path unchanged."""
++    if sys.platform == "darwin":
++        return Path.home() / "Library" / "Application Support" / "LabelWorkflow"
++    if sys.platform == "win32":
++        return Path(os.environ.get("LOCALAPPDATA") or Path.home() / "AppData" / "Local") / "LabelWorkflow"
++    return Path(os.environ.get("XDG_CONFIG_HOME") or Path.home() / ".config") / "LabelWorkflow"
++
++
++SUPPORT = support_directory()
+ SETTINGS = SUPPORT / "updates.json"
+ # Public release page: GitHub always serves the newest release's files at this address.
+ RELEASES_PAGE = "https://github.com/sciencehunt/LabelTrainPredict/releases"
+@@ -39,12 +48,14 @@
+ 
+ 
+ def current_version() -> str:
+-    try:
++    # Portable builds replace application source without mutating the bundled runtime's
++    # dist-info. Report the code actually running, not an older installed wheel record.
++    try:
++        from . import __version__
++        return __version__
++    except Exception:
+         from importlib.metadata import version
+         return version("napari-label-workflow")
+-    except Exception:
+-        from . import __version__
+-        return __version__
+ 
+ 
+ def parse_version(text: str) -> tuple:
+--- /dev/null
++++ b/tests/benchmark_inference_capacity_cuda.py
+@@ -0,0 +1,102 @@
++"""Disposable remote CUDA benchmark; no training/scientific inputs/environment changes.
++
++PYTHONPATH=src python -B tests/benchmark_inference_capacity_cuda.py --output /new/path.json
++Parent must run under the study GPU lock; this also refuses any foreign GPU process.
++One warmup, one tuning run, then three paired batch1/selected-batch timings per mode.
++"""
++import argparse
++import hashlib
++import json
++import os
++from pathlib import Path
++import statistics
++import subprocess
++import sys
++import time
++
++import numpy as np
++import torch
++
++from napari_label_workflow import training as tr
++from napari_label_workflow import inference_capacity as cap
++
++
++def main():
++    parser = argparse.ArgumentParser()
++    parser.add_argument("--output", required=True)
++    args = parser.parse_args()
++    output = Path(args.output)
++    if output.exists():
++        raise FileExistsError("Benchmark refuses to overwrite existing evidence.")
++    if sys.platform != "linux" or not torch.cuda.is_available() or torch.cuda.get_device_name() != "NVIDIA RTX 6000 Ada Generation":
++        raise RuntimeError("Remote RTX 6000 Ada CUDA required; no CPU fallback.")
++    rows = subprocess.check_output(["nvidia-smi", "--query-compute-apps=pid", "--format=csv,noheader,nounits"], text=True)
++    if any(int(row.strip()) != os.getpid() for row in rows.splitlines() if row.strip()):
++        raise RuntimeError("Foreign GPU compute exists; benchmark refuses to overlap it.")
++    torch.set_num_threads(4)
++    torch.backends.cuda.matmul.allow_tf32 = False
++    torch.backends.cudnn.allow_tf32 = False
++    source_files = [Path(tr.__file__), Path(cap.__file__), Path(__file__)]
++    hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in source_files}
++    receipt = {"state": "running", "kind": "synthetic_inference_capacity_benchmark", "models_trained": 0,
++               "source_hashes": hashes, "torch": torch.__version__, "tf32": False, "threads": 4,
++               "timing_repeats": 3, "warmups_per_mode": 1, "models": []}
++    for mode, shape, instance in (("2.5d", (1, 12, 384, 384), False), ("3d", (1, 16, 320, 320), True)):
++        torch.manual_seed(419)
++        c = tr.TrainingConfig(mode=mode, device="cuda", width=16, depth=4, patch=(16, 128, 128),
++                              instance=instance, context=5, auxiliary_heads=["flow", "embedding", "offset"] if instance else [])
++        model = tr._make_model(c).cuda().eval()
++        image = np.random.default_rng(419).random(shape, dtype=np.float32)
++        fixed = cap.select_inference_capacity(c, shape, "cuda", max_batch_size=1, autotune=False)
++        adaptive = cap.select_inference_capacity(c, shape, "cuda")
++        tr.predict_loaded(model, c, image, inference_policy=fixed, require_gpu=True)
++        torch.cuda.synchronize()
++        started = time.perf_counter()
++        tuned = tr.predict_loaded(model, c, image, inference_policy=adaptive, require_gpu=True)
++        tuning_run_seconds = time.perf_counter()-started
++        times = {"batch1": [], "adaptive_cached": []}
++        peak = {"batch1": [], "adaptive_cached": []}
++        differences = []
++        for _ in range(3):
++            expected = None
++            for label, policy in (("batch1", fixed), ("adaptive_cached", adaptive)):
++                torch.cuda.synchronize()
++                torch.cuda.reset_peak_memory_stats()
++                started = time.perf_counter()
++                result = tr.predict_loaded(model, c, image, inference_policy=policy, require_gpu=True)
++                torch.cuda.synchronize()
++                times[label].append(time.perf_counter()-started)
++                peak[label].append(torch.cuda.max_memory_allocated())
++                if label == "batch1":
++                    expected = result
++                else:
++                    per_output = []
++                    for left, right in zip(expected, result):
++                        if left is not None:
++                            np.testing.assert_allclose(left, right, atol=5e-5, rtol=5e-5)
++                            per_output.append(float(np.max(np.abs(left-right))))
++                    differences.append(per_output)
++        for left, right in zip(expected, tuned):
++            if left is not None:
++                np.testing.assert_allclose(left, right, atol=5e-5, rtol=5e-5)
++        receipt["models"].append({"mode": mode, "instance": instance, "shape": shape,
++                                  "config": tr.asdict(c), "timing_seconds": times,
++                                  "peak_allocated_bytes": peak, "first_adaptive_run_including_tuning_seconds": tuning_run_seconds,
++                                  "cached_median_speed_ratio": statistics.median(times["batch1"])/statistics.median(times["adaptive_cached"]),
++                                  "output_max_abs_differences": differences, "allclose_atol_rtol": [5e-5, 5e-5],
++                                  "fixed_capacity": fixed.to_dict(), "adaptive_capacity": adaptive.to_dict()})
++        del model, tuned, expected, result
++        torch.cuda.empty_cache()
++    if hashes != {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in source_files}:
++        raise RuntimeError("Source changed during benchmark.")
++    receipt.update(state="passed", source_unchanged=True,
++                   limits="Synthetic random-weight forward/blending timing only; no accuracy/decoder/transport/file-IO measurement. Batch size may remain1 when faster.")
++    output.parent.mkdir(parents=True, exist_ok=True)
++    with output.open("x", encoding="utf-8") as stream:
++        json.dump(receipt, stream, indent=2)
++    print(json.dumps({"state": receipt["state"], "output": str(output),
++                      "modes": [{"mode": row["mode"], "cached_speed_ratio": row["cached_median_speed_ratio"]} for row in receipt["models"]]}))
++
++
++if __name__ == "__main__":
++    main()
+--- a/tests/test_batched_prediction.py
++++ b/tests/test_batched_prediction.py
+@@ -26,7 +26,10 @@
+             with patch.dict(os.environ, {"LABEL_WORKFLOW_PREDICT_BATCH": "1"}):
+                 single, _ = _predict_tiled(model, image, c, None, None, None)
+             n_single = len(calls); calls.clear()
+-            batched, _ = _predict_tiled(model, image, c, None, None, None)
++            # Count useful forwards only here; capacity autotune warmups are
++            # covered by test_inference_capacity_cuda separately.
++            with patch.dict(os.environ, {"LABEL_WORKFLOW_PREDICT_BATCH": "8"}):
++                batched, _ = _predict_tiled(model, image, c, None, None, None)
+         self.assertGreater(max(calls), 1)                       # tiles really went through together
+         self.assertLess(len(calls), n_single)
+         np.testing.assert_allclose(batched, single, atol=1e-5)
+--- /dev/null
++++ b/tests/test_channel_sync_windows.py
+@@ -0,0 +1,59 @@
++"""Real Napari layers with a mocked nnInteractive client; no neural execution."""
++import os
++os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
++import tempfile
++from pathlib import Path
++import unittest
++from unittest.mock import patch
++import numpy as np
++
++
++class ChannelSync(unittest.TestCase):
++    def test_new_object_follows_ticks_without_changing_active_preview_or_project_names(self):
++        from qtpy.QtWidgets import QApplication
++        from napari.components import ViewerModel
++        from napari_label_workflow.widget import WorkflowWidget
++        from napari_label_workflow.project import create_project
++        from napari_label_workflow import nninteractive_client
++        from test_nninteractive import FakeClient
++        import tifffile
++        app = QApplication.instance() or QApplication([])
++        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as folder:
++            root = Path(folder)
++            data = np.random.default_rng(19).integers(0, 999, (2, 10, 48, 48), dtype=np.uint16)
++            source = root / 'named.ome.tif'
++            tifffile.imwrite(source, data, ome=True, metadata={'axes': 'CZYX', 'Channel': {'Name': ['Cy5', 'DAPI']}})
++            project = create_project(root / 'p', ['Channel 0', 'Channel 1'], ['Background', 'Nucleus'], task='objects')
++            project.add_crop(data, {'path': str(source), 'channel_names': [], 'spacing_zyx': [.26, .1, .1]}, 'TX_TEST')
++            viewer = ViewerModel(); w = WorkflowWidget(viewer); w.timer.stop()
++            w.task = lambda work, callback: callback(work())
++            w._failed = lambda text: (_ for _ in ()).throw(AssertionError(text))
++            fake = FakeClient((10, 48, 48))
++            try:
++                w.open_project(project.root); w.continue_round(1)
++                self.assertEqual(w.project.config['channels'], ['Channel 0', 'Channel 1'])
++                self.assertEqual([x.name for x in w.channel_layers], ['Cy5', 'DAPI'])
++                w.channel_checks[0].setChecked(True); w.channel_checks[1].setChecked(False)
++                w.channel_layers[0].visible = False
++                with patch.object(nninteractive_client, 'available', return_value=(True, '')), patch.object(nninteractive_client, 'NNInteractive', return_value=fake):
++                    w.nni.start_button.setChecked(True)
++                self.assertEqual(fake.image_key, (w.record['id'], (0,)))
++                w.nni.points.add([5, 22, 22]); app.processEvents()
++                self.assertTrue(w.nni.has_preview())
++                before = w.nni.preview.data.copy()
++                w.channel_checks[0].setChecked(False); w.channel_checks[1].setChecked(True)
++                w.nni._sync_channel()
++                self.assertEqual(fake.image_key, (w.record['id'], (0,)))
++                np.testing.assert_array_equal(w.nni.preview.data, before)
++                w.nni.clear(); w.nni.points.add([5, 22, 22]); app.processEvents()
++                self.assertEqual(fake.image_key, (w.record['id'], (1,)))
++                w.nni.clear(); w.channel_checks[1].setChecked(False)
++                w.nni.points.add([5, 22, 22]); app.processEvents()
++                self.assertEqual(fake.image_key, (w.record['id'], (0, 1)))
++                self.assertEqual(w.project.config['channels'], ['Channel 0', 'Channel 1'])
++            finally:
++                w.nni.shutdown(); w.writer.shutdown(wait=True); w.pool.shutdown(wait=True); w.close(); viewer.layers.clear()
++
++
++if __name__ == '__main__':
++    unittest.main()
+--- /dev/null
++++ b/tests/test_inference_capacity_cuda.py
+@@ -0,0 +1,118 @@
++"""Opt-in remote CUDA numerical contracts; no local/CPU model execution.
++
++Run on the otherwise-idle gpu-workstation GPU under the parent's study lock:
++LABEL_WORKFLOW_RUN_CUDA_TESTS=1 PYTHONPATH=src python -B -m unittest discover
++    -s tests -p test_inference_capacity_cuda.py -v
++"""
++from dataclasses import asdict
++import os
++import subprocess
++import sys
++import unittest
++from unittest.mock import patch
++
++import numpy as np
++import torch
++
++from napari_label_workflow import training as tr
++from napari_label_workflow.inference_capacity import select_inference_capacity
++
++
++@unittest.skipUnless(os.environ.get("LABEL_WORKFLOW_RUN_CUDA_TESTS") == "1", "explicit remote CUDA opt-in required")
++class CapacityCUDA(unittest.TestCase):
++    @classmethod
++    def setUpClass(cls):
++        if sys.platform != "linux" or not torch.cuda.is_available():
++            raise RuntimeError("These tests require the remote Linux CUDA GPU; no CPU fallback.")
++        if torch.cuda.get_device_name() != "NVIDIA RTX 6000 Ada Generation":
++            raise RuntimeError("Expected gpu-workstation RTX 6000 Ada.")
++        rows = subprocess.check_output(["nvidia-smi", "--query-compute-apps=pid", "--format=csv,noheader,nounits"], text=True)
++        if any(int(row.strip()) != os.getpid() for row in rows.splitlines() if row.strip()):
++            raise RuntimeError("Foreign GPU process detected; tests refuse to overlap it.")
++        torch.set_num_threads(4)
++        torch.backends.cuda.matmul.allow_tf32 = False
++        torch.backends.cudnn.allow_tf32 = False
++
++    def config(self, mode, instance=False):
++        return tr.TrainingConfig(mode=mode, instance=instance, device="cuda", width=4, depth=3,
++                                 patch=(4, 24, 24), context=3, channels=[0],
++                                 auxiliary_heads=["flow", "embedding", "offset"] if instance else [])
++
++    def test_both_modes_batch_four_matches_batch_one(self):
++        for mode, instance in (("2.5d", False), ("3d", True)):
++            with self.subTest(mode=mode):
++                torch.manual_seed(41)
++                c = self.config(mode, instance)
++                model = tr._make_model(c).cuda().eval()
++                image = np.random.default_rng(41).random((1, 9, 65, 67), dtype=np.float32)
++                single = select_inference_capacity(c, image.shape, "cuda", max_batch_size=1, autotune=False)
++                batch = select_inference_capacity(c, image.shape, "cuda", max_batch_size=4, autotune=False)
++                with patch.object(tr, "INFERENCE_TILE_XY", 32), patch.object(tr, "INFERENCE_TILE_Z", 8):
++                    expected = tr.predict_loaded(model, c, image, inference_policy=single, require_gpu=True)
++                    actual = tr.predict_loaded(model, c, image, inference_policy=batch, require_gpu=True)
++                for left, right in zip(expected, actual):
++                    if left is not None:
++                        np.testing.assert_allclose(left, right, atol=5e-5, rtol=5e-5)
++                self.assertEqual(single.processed_tiles, batch.processed_tiles)
++                self.assertLess(batch.forward_calls, single.forward_calls)
++                self.assertEqual(batch.decisions[0]["selected_batch"], 4)
++                self.assertEqual(next(model.parameters()).device.type, "cuda")
++                del model
++
++    def test_autotune_records_actual_gpu_and_reuses_probe(self):
++        c = self.config("2.5d")
++        model = tr._make_model(c).cuda().eval()
++        image = np.random.default_rng(3).random((1, 9, 33, 35), dtype=np.float32)
++        policy = select_inference_capacity(c, image.shape, next(model.parameters()).device, max_batch_size=4)
++        for _ in range(2):
++            tr.predict_loaded(model, c, image, inference_policy=policy, require_gpu=True)
++        receipt = policy.to_dict()
++        self.assertEqual(len(receipt["decisions"]), 1)
++        self.assertGreater(receipt["initial_memory"]["free_bytes"], 0)
++        self.assertEqual(receipt["initial_memory"]["device_name"], "NVIDIA RTX 6000 Ada Generation")
++        self.assertTrue(receipt["decisions"][0]["trials"])
++        self.assertIn(receipt["decisions"][0]["selected_batch"], (1, 2, 4))
++        self.assertFalse(receipt["cpu_neural_fallback"])
++
++    def test_runtime_oom_halves_without_duplicate_tiles_or_cpu(self):
++        class Limited(torch.nn.Module):
++            def __init__(self):
++                super().__init__(); self.weight = torch.nn.Parameter(torch.ones(1, device="cuda")); self.calls = []
++            def forward(self, x):
++                self.calls.append(len(x))
++                if len(x) > 2:
++                    raise torch.OutOfMemoryError("CUDA out of memory: injected batch capacity")
++                return {"logits": x * self.weight}
++            def cpu(self):
++                raise AssertionError("CPU model transfer forbidden")
++        model = Limited().eval()
++        policy = select_inference_capacity(self.config("3d"), (1, 4, 8, 8), "cuda", max_batch_size=4, autotune=False)
++        output, count = policy.run(model, lambda n: torch.ones((n, 1, 4, 8, 8), device="cuda"), 8, (1, 4, 8, 8))
++        self.assertEqual(model.calls, [4, 2])
++        self.assertEqual(count, 2)
++        self.assertEqual(policy.processed_tiles, 2)
++        self.assertEqual(policy.decisions[0]["runtime_oom_retries"][0]["to_batch"], 2)
++        self.assertTrue(output["logits"].is_cuda)
++        with patch.object(model, "forward", side_effect=torch.OutOfMemoryError("CUDA out of memory: injected one tile")):
++            with self.assertRaisesRegex(RuntimeError, "batch 1; no CPU fallback"):
++                policy.run(model, lambda n: torch.ones((n, 1, 4, 8, 8), device="cuda"), 1, (1, 4, 8, 8))
++
++    def test_strict_load_ignores_saved_cpu_device_and_strict_prediction_rejects_cpu(self):
++        c = self.config("2.5d")
++        model = tr._make_model(c).cuda().eval()
++        payload = {"config": asdict(c), "state_dict": model.state_dict()}
++        c.device = "cpu"
++        loaded = tr.load_model(payload, c, device_override="cuda:0", require_gpu=True)
++        self.assertEqual(next(loaded.parameters()).device.type, "cuda")
++        with self.assertRaisesRegex(ValueError, "override must name a GPU"):
++            tr.load_model(payload, c, device_override="cpu", require_gpu=True)
++        with patch("torch.cuda.is_available", return_value=False):
++            with self.assertRaisesRegex(RuntimeError, "unavailable; no CPU fallback"):
++                tr.load_model(payload, c, device_override="cuda", require_gpu=True)
++        fake = type("CPUDescriptionOnly", (), {"parameters": lambda self: iter([type("Parameter", (), {"device": torch.device("cpu")})()])})()
++        with self.assertRaisesRegex(RuntimeError, "requires a GPU"):
++            tr.predict_loaded(fake, c, np.zeros((1, 1, 16, 16), np.float32), require_gpu=True)
++
++
++if __name__ == "__main__":
++    unittest.main()
+--- /dev/null
++++ b/tests/test_inference_capacity_metadata.py
+@@ -0,0 +1,74 @@
++"""Pure policy/AST checks; deliberately imports no NumPy or tensor framework."""
++import ast
++import importlib.util
++import os
++from pathlib import Path
++import sys
++import unittest
++
++
++ROOT = Path(__file__).resolve().parents[1]
++SOURCE = ROOT / "src/napari_label_workflow/inference_capacity.py"
++spec = importlib.util.spec_from_file_location("capacity_metadata_under_test", SOURCE)
++capacity = importlib.util.module_from_spec(spec)
++sys.modules[spec.name] = capacity
++spec.loader.exec_module(capacity)
++
++
++class CapacityMetadata(unittest.TestCase):
++    def test_device_names_are_canonical_without_framework(self):
++        self.assertEqual(capacity.canonical_device_name("mps"), "mps:0")
++        self.assertEqual(capacity.canonical_device_name("mps:0"), "mps:0")
++        self.assertEqual(capacity.canonical_device_name("cuda", 2), "cuda:2")
++        self.assertEqual(capacity.canonical_device_name("cuda:1", 2), "cuda:1")
++        self.assertEqual(capacity.canonical_device_name("cpu"), "cpu")
++
++    def test_device_defaults_and_explicit_precedence(self):
++        self.assertEqual(capacity.batch_settings("3d", "cuda", environ={})["max_batch_size"], 8)
++        self.assertEqual(capacity.batch_settings("2.5d", "cuda", environ={})["max_batch_size"], 32)
++        self.assertEqual(capacity.batch_settings("2.5d", "mps", environ={}),
++                         {"max_batch_size": 8, "autotune": False, "cap_source": "device_local_default"})
++        self.assertEqual(capacity.batch_settings("3d", "cpu", 32, environ={})["max_batch_size"], 1)
++        selected = capacity.batch_settings("3d", "cuda", 4, environ={"LABEL_WORKFLOW_PREDICT_BATCH": "1"})
++        self.assertEqual(selected["max_batch_size"], 4)
++        self.assertTrue(selected["autotune"])
++
++    def test_legacy_fixed_cap_and_new_maximum(self):
++        fixed = capacity.batch_settings("3d", "cuda", environ={"LABEL_WORKFLOW_PREDICT_BATCH": "3"})
++        self.assertFalse(fixed["autotune"])
++        self.assertEqual(fixed["max_batch_size"], 3)
++        maximum = capacity.batch_settings("3d", "cuda", environ={"LABEL_WORKFLOW_PREDICT_MAX_BATCH": "16"})
++        self.assertTrue(maximum["autotune"])
++        self.assertEqual(maximum["max_batch_size"], 16)
++
++    def test_invalid_caps_fail_instead_of_allocating(self):
++        for cap in (0, -1, 129, True, 1.5, "1.0", "x"):
++            with self.subTest(cap=cap), self.assertRaises(ValueError):
++                capacity.batch_settings("3d", "cuda", cap, environ={})
++
++    def test_bounded_candidates(self):
++        self.assertEqual(capacity.candidate_batches(7), [1, 2, 4, 7])
++        self.assertEqual(capacity.candidate_batches(1), [1])
++        self.assertEqual(capacity.candidate_batches(32), [1, 2, 4, 8, 16, 32])
++
++    def test_measured_selection_retains_small_batch_without_improvement(self):
++        trials = [{"state": "measured", "batch_size": 1, "seconds": .1},
++                  {"state": "measured", "batch_size": 2, "seconds": .199},
++                  {"state": "measured", "batch_size": 4, "seconds": .2},
++                  {"state": "cuda_oom", "batch_size": 8}]
++        self.assertEqual(capacity.choose_batch(trials), 4)
++        self.assertEqual(capacity.choose_batch(trials[:2]), 1)
++
++    def test_no_cpu_model_fallback_in_tiled_paths(self):
++        tree = ast.parse((ROOT / "src/napari_label_workflow/training.py").read_text(encoding="utf-8"))
++        names = {"_predict_tiled", "_predict_tiled_cuda", "predict_loaded"}
++        functions = [node for node in tree.body if isinstance(node, ast.FunctionDef) and node.name in names]
++        self.assertEqual(len(functions), 3)
++        for node in functions:
++            for call in ast.walk(node):
++                if isinstance(call, ast.Call) and isinstance(call.func, ast.Attribute) and call.func.attr == "cpu":
++                    self.assertNotEqual(ast.unparse(call.func.value), "model")
++
++
++if __name__ == "__main__":
++    unittest.main()
+--- a/tests/test_inference_configuration.py
++++ b/tests/test_inference_configuration.py
+@@ -98,7 +98,7 @@
+         payload = {"format_version": 1, "config": copy.deepcopy(original),
+                    "normalization": {"low": [0], "high": [1], "class_names": ["Background", "Nucleus"]}}
+         calls = []; observed_models = []
+-        def predict(model, effective, block, *args, return_cuda=False):
++        def predict(model, effective, block, *args, return_cuda=False, inference_policy=None, require_gpu=False):
+             self.assertTrue(return_cuda)
+             observed_models.append(asdict(effective)); prob = np.zeros((2, *block.shape[1:]), np.float32); prob[1] = 1
+             return _StoredTensor(prob), _StoredTensor(np.zeros((2, *block.shape[1:]), np.float32))
+@@ -116,7 +116,9 @@
+                  patch("napari_label_workflow.crops.inspect_image", return_value={"path": "synthetic.tif", "spacing_zyx": [1, 1, 1]}), \
+                  patch("napari_label_workflow.crops.load_image", return_value=raw), \
+                  patch("napari_label_workflow.crops.normalize_for_model", side_effect=lambda block, norm: block), \
+-                 patch.object(training, "load_model", return_value=object()), patch.object(training, "predict_loaded", side_effect=predict), \
++                 patch.object(training, "load_model", return_value=SimpleNamespace(parameters=lambda: iter([SimpleNamespace(device="cuda")]))), \
++                 patch("napari_label_workflow.inference_capacity.select_inference_capacity", return_value=SimpleNamespace(to_dict=lambda: {"device": "cuda", "selected_batch_size": 2})), \
++                 patch.object(training, "predict_loaded", side_effect=predict), \
+                  patch.object(training, "decode_instances", side_effect=decode), patch.object(inference, "_link_objects_cuda", new=link), \
+                  patch.object(inference, "_compact_instances_cuda", new=compact):
+                 report = inference.run_full_image(checkpoint, "synthetic.tif", Path(temp)/"output", slab=2, block_xy=20,
+--- /dev/null
++++ b/tests/test_remote_inference.py
+@@ -0,0 +1,179 @@
++"""File/transport contracts only: no model construction, GPU or network execution."""
++import ast
++import copy
++import io
++import json
++from pathlib import Path
++import shlex
++import tempfile
++import threading
++from types import SimpleNamespace
++import unittest
++from unittest.mock import patch
++
++from napari_label_workflow import remote_inference as ri
++from napari_label_workflow.remote_ssh import Workstation
++
++
++class RemoteInferenceContracts(unittest.TestCase):
++    def ws(self):
++        return Workstation(host="gpu-workstation", user="labuser", folder="/tmp/ltp-test", python="/venv/bin/python", enabled=True)
++
++    def package(self, root, remote=False):
++        checkpoint = root/"original.pt"; checkpoint.write_bytes(b"checkpoint-storage-only")
++        image = root/"image.tif"; image.write_bytes(b"image-storage-only")
++        return ri.prepare_package(self.ws(), checkpoint, str(image) if not remote else "ssh://labuser@gpu-workstation/data/image.tif::1", root/"outputs")
++
++    def test_snapshot_hashes_and_series_preserve_originals(self):
++        with tempfile.TemporaryDirectory() as temp:
++            root = Path(temp); package, manifest = self.package(root)
++            self.assertEqual(ri._verify_package(package, manifest["job_id"], ri._sha(package/"manifest.json")), manifest)
++            self.assertEqual((package/"input/image.tif").read_bytes(), (root/"image.tif").read_bytes())
++            self.assertIn("label_workflow_engine/inference_capacity.py", manifest["files_sha256"])
++            self.assertTrue(manifest["require_gpu"])
++            (package/"label_workflow_engine/accel.py").write_bytes(b"changed")
++            with self.assertRaisesRegex(RuntimeError, "differs"):
++                ri._verify_package(package, manifest["job_id"], ri._sha(package/"manifest.json"))
++
++    def test_remote_source_does_not_open_or_copy_the_image_locally(self):
++        with tempfile.TemporaryDirectory() as temp:
++            package, manifest = self.package(Path(temp), remote=True)
++            self.assertEqual(manifest["source"]["path"], "/data/image.tif")
++            self.assertEqual(manifest["source"]["series"], "1")
++            self.assertTrue(manifest["source"]["remote_existing"])
++            self.assertFalse((package/"input").exists())
++        for source in ("ssh://other@gpu-workstation/data/a.tif", "ssh://labuser@other/data/a.tif", "ssh://labuser@gpu-workstation/a?query=1"):
++            with self.assertRaises(ValueError): ri._source_parts(source, self.ws(), True)
++        with self.assertRaises(ValueError): ri._source_parts("relative.tif", self.ws(), True)
++
++    def test_explicit_cpu_refused_before_snapshot_or_transport(self):
++        ws = self.ws(); ws.device = "cpu"
++        with tempfile.TemporaryDirectory() as temp:
++            root = Path(temp)
++            with self.assertRaisesRegex(ValueError, "not CPU"):
++                ri.prepare_package(ws, "not-read.pt", "not-read.tif", root/"outputs")
++            self.assertFalse((root/"outputs").exists())
++
++    def test_tilde_workfolder_rejected_before_transport(self):
++        ws = self.ws(); ws.folder = "~/labelworkflow"
++        with patch.object(Workstation, "validate", new=lambda self: None):
++            with self.assertRaisesRegex(ValueError, "absolute workstation"):
++                ri.run_full_image_remote(ws, "not-read.pt", "not-read.tif", "not-created")
++
++    def test_cancel_is_identity_checked_and_framework_free(self):
++        with tempfile.TemporaryDirectory() as temp:
++            package, manifest = self.package(Path(temp))
++            digest = ri._sha(package/"manifest.json")
++            with self.assertRaises(RuntimeError): ri.worker(package, "0"*32, digest, "cancel")
++            with self.assertRaises(RuntimeError): ri.worker(package, manifest["job_id"], "0"*64, "cancel")
++            ri.worker(package, manifest["job_id"], digest, "cancel")
++            self.assertTrue((package/"CANCEL.json").exists())
++            self.assertFalse((package/"STARTED.json").exists())
++
++    def test_completion_rejects_wrong_identity_traversal_and_outside_outputs(self):
++        m = {"job_id": "a"*32}; digest = "b"*64
++        good = {"state": "completed", "job_id": m["job_id"], "manifest_sha256": digest,
++                "source_and_inputs_unchanged": True, "reviewed": False, "report_file": "results/one/report.json",
++                "files_sha256": {"results/one/report.json": "c"*64, "results/one/objects.tif": "d"*64}}
++        self.assertEqual(str(ri._validate_completion(good, m, digest)), "results/one/report.json")
++        for key, value in (("job_id", "z"*32), ("state", "failed"), ("reviewed", True), ("source_and_inputs_unchanged", False), ("manifest_sha256", "x"*64)):
++            broken = dict(good); broken[key] = value
++            with self.assertRaises(RuntimeError): ri._validate_completion(broken, m, digest)
++        for name in ("../stolen", "/absolute", "results/other/x", "results\\one\\x", "C:/outside", "C:outside", "results/one/report.json:stream"):
++            broken = copy.deepcopy(good); broken["files_sha256"][name] = "e"*64
++            with self.assertRaises((ValueError, RuntimeError)): ri._validate_completion(broken, m, digest)
++        with self.assertRaises(ValueError): ri._checked_relative(None)
++
++    def test_worker_selects_remote_capacity_and_forces_gpu_in_both_modes(self):
++        tree = ast.parse(Path(ri.__file__).read_text(encoding="utf-8"))
++        worker = next(n for n in tree.body if isinstance(n, ast.FunctionDef) and n.name == "worker")
++        call = next(n for n in ast.walk(worker) if isinstance(n, ast.Call) and isinstance(n.func, ast.Name) and n.func.id == "run_full_image")
++        self.assertTrue(next(k.value.value for k in call.keywords if k.arg == "require_gpu"))
++        self.assertIn("device_override", {k.arg for k in call.keywords})
++        cuda = SimpleNamespace(is_available=lambda: True, device_count=lambda: 2,
++                               mem_get_info=lambda i: [(3, 8), (7, 12)][i], get_device_name=lambda i: f"GPU{i}",
++                               set_device=lambda i: self.assertEqual(i, 1))
++        fake = SimpleNamespace(cuda=cuda)
++        with patch.dict("sys.modules", {"torch": fake}):
++            device, receipt = ri._select_remote_gpu()
++        self.assertEqual(device, "cuda:1"); self.assertEqual(receipt["selected"]["free_bytes"], 7)
++        cuda.set_device = lambda i: self.assertEqual(i, 0)
++        with patch.dict("sys.modules", {"torch": fake}):
++            device, receipt = ri._select_remote_gpu("cuda:0")
++            self.assertEqual(device, "cuda:0"); self.assertEqual(receipt["requested_device"], "cuda:0")
++            with self.assertRaises(RuntimeError): ri._select_remote_gpu("cuda:9")
++        with patch.dict("sys.modules", {"torch": SimpleNamespace(cuda=SimpleNamespace(is_available=lambda: False), backends=SimpleNamespace(mps=None))}):
++            with self.assertRaisesRegex(RuntimeError, "never falls back"): ri._select_remote_gpu()
++
++    def test_mock_ssh_upload_progress_download_and_output_hash_validation(self):
++        self._transport(False)
++
++    def test_mock_transport_rejects_tampered_download(self):
++        self._transport(True)
++
++    def test_mock_cancel_only_addresses_its_own_job_and_withholds_outputs(self):
++        self._transport(False, cancel_job=True)
++
++    def _transport(self, corrupt, cancel_job=False):
++        from napari_label_workflow import remote_ssh
++        with tempfile.TemporaryDirectory() as temp:
++            root = Path(temp); checkpoint = root/"model.pt"; checkpoint.write_bytes(b"checkpoint")
++            image = root/"image.tif"; image.write_bytes(b"image")
++            state = {}; messages = []; cancel = threading.Event(); commands = []
++            def progress(message):
++                messages.append(message)
++                if cancel_job and "GPU tiles" in message["phase"]: cancel.set()
++            def transport(args, timeout=0):
++                if args[0] == "ssh":
++                    commands.append(args[-1]); return ""
++                source, destination = args[-2:]
++                if not source.startswith("labuser@gpu-workstation:"):
++                    state["package"] = Path(source); return ""
++                if source.endswith("completion.json"):
++                    Path(destination).write_text(json.dumps(state["completion"]), encoding="utf-8")
++                elif source.endswith("report.json"):
++                    Path(destination).write_bytes(state["report"])
++                else:
++                    Path(destination).write_bytes(b"bad" if corrupt else b"prediction")
++                return ""
++            def launch(args, **kwargs):
++                p = state["package"]; m = json.loads((p/"manifest.json").read_text())
++                folder = "/remote/" + p.name + "/results/one"
++                state["report"] = json.dumps({"folder": folder, "status": "unreviewed_model_prediction", "reviewed": False,
++                                               "inference_device": "cuda:0", "gpu_required_for_execution": True,
++                                               "inference_capacity": {"device": "cuda:0", "cpu_neural_fallback": False},
++                                               "checkpoint_sha256": m["checkpoint_sha256"], "files": ["objects.tif", "objects.csv"],
++                                               "remote_execution": {"job_id": m["job_id"], "manifest_sha256": ri._sha(p/"manifest.json"),
++                                                                      "checkpoint_sha256": m["checkpoint_sha256"],
++                                                                      "engine_and_inputs_unchanged": True, "cpu_neural_fallback": False}}).encode()
++                import hashlib
++                state["completion"] = {"state": "completed", "job_id": m["job_id"], "manifest_sha256": ri._sha(p/"manifest.json"),
++                                       "source_and_inputs_unchanged": True, "reviewed": False, "report_file": "results/one/report.json",
++                                       "files_sha256": {"results/one/report.json": hashlib.sha256(state["report"]).hexdigest(),
++                                                        **{"results/one/"+name: hashlib.sha256(b"prediction").hexdigest()
++                                                           for name in ("objects.tif", "objects.csv", "volumes.csv", "probability.tif")}}}
++                self.assertNotIn("pkill", args[-1]); self.assertNotIn("--device cpu", args[-1])
++                stream = io.StringIO('LWPROGRESS {"phase":"GPU tiles","step":1,"total":1}\nLWDONE ' + m["job_id"] + "\n")
++                return SimpleNamespace(stdout=stream, wait=lambda: 0)
++            with patch.object(Workstation, "validate", new=lambda self: None), patch.object(remote_ssh, "_run", new=transport), patch.object(ri.subprocess, "Popen", new=launch):
++                if cancel_job:
++                    with self.assertRaisesRegex(RuntimeError, "cancelled"):
++                        ri.run_full_image_remote(self.ws(), checkpoint, image, root/"outputs", progress=progress, cancel=cancel)
++                    manifest = json.loads((state["package"]/"manifest.json").read_text())
++                    cancellation = [command for command in commands if "--action cancel" in command]
++                    self.assertEqual(len(cancellation), 1)
++                    self.assertIn(manifest["job_id"], cancellation[0]); self.assertNotIn("pkill", cancellation[0])
++                    self.assertFalse(list((root/"outputs").glob("remote_*")))
++                elif corrupt:
++                    with self.assertRaisesRegex(RuntimeError, "Downloaded output differs"):
++                        ri.run_full_image_remote(self.ws(), checkpoint, image, root/"outputs", progress=progress)
++                else:
++                    report = ri.run_full_image_remote(self.ws(), checkpoint, image, root/"outputs", progress=progress)
++                    folder = Path(report["folder"])
++                    self.assertTrue((folder/"download_receipt.json").exists())
++                    self.assertEqual((folder/"objects.tif").read_bytes(), b"prediction")
++                    self.assertTrue(any("GPU tiles" in m["phase"] for m in messages))
++            self.assertEqual(checkpoint.read_bytes(), b"checkpoint"); self.assertEqual(image.read_bytes(), b"image")
++
++
++if __name__ == "__main__": unittest.main()
+--- /dev/null
++++ b/tests/test_remote_inference_ui.py
+@@ -0,0 +1,68 @@
++"""Real-Napari routing contracts with mocked inference; no model execution."""
++import os
++os.environ.setdefault('QT_QPA_PLATFORM','offscreen')
++import gc
++import json
++from pathlib import Path
++import tempfile
++import unittest
++from unittest.mock import patch
++from unittest.mock import MagicMock
++
++class RemoteInferenceUI(unittest.TestCase):
++    def test_destination_uses_workstation_and_remote_source_without_local_inference(self):
++        import platformdirs
++        import torch
++        from qtpy.QtCore import Qt
++        from qtpy.QtWidgets import QApplication
++        from napari.components import ViewerModel
++        from napari_label_workflow.widget import WorkflowWidget
++        from napari_label_workflow.apply_panel import ApplyDialog
++        from napari_label_workflow.project import create_project
++        from napari_label_workflow.remote_ssh import Workstation
++        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as temp:
++            root=Path(temp); app=QApplication.instance() or QApplication([])
++            patches=[patch.object(platformdirs,name,return_value=str(root/name)) for name in
++                     ('user_cache_dir','user_config_dir','user_data_dir','user_log_dir')]
++            for p in patches:p.start()
++            viewer=ViewerModel();w=WorkflowWidget(viewer);w.timer.stop()
++            try:
++                project=create_project(root/'project',['C0'],['Background','Object'],task='objects');w.open_project(project.root)
++                model=root/'model.pt';torch.save(dict(format_version=1,config=dict(instance=True,mode='3d',classes=1),state_dict={}),model)
++                w.checkpoint=model
++                ws=Workstation(host='gpu.example',enabled=True,python='/venv/bin/python',folder='/jobs')
++                with patch.object(w,'workstation',return_value=ws):
++                    dialog=ApplyDialog(w);self.assertEqual(dialog.destination.currentData(),'workstation')
++                    dialog.images.clear();source='ssh://gpu.example/data/sample.tif';dialog._add_source(source)
++                    dialog.output=root/'outputs'
++                    result=dict(per_class=[],source=source,folder=str(root/'result'),seconds=1.,status='unreviewed_model_prediction')
++                    with patch.object(Workstation,'validate'),patch('napari_label_workflow.remote_inference.run_full_image_remote',return_value=result) as remote, \
++                         patch('napari_label_workflow.inference.run_full_image') as local, \
++                         patch.object(w,'task',side_effect=lambda work,done:done(work())):
++                        dialog.run();local.assert_not_called();remote.assert_called_once()
++                        self.assertIs(remote.call_args.args[0],ws)
++                        self.assertTrue(remote.call_args.kwargs['source_is_remote'])
++                        self.assertNotIn('batch_size',remote.call_args.kwargs)
++                    dialog.destination.setCurrentIndex(0)
++                    with self.assertRaisesRegex(ValueError,'Workstation'):dialog.run()
++                    self.assertEqual(w.project.config['ui_settings']['inference_destination'],'here')
++                    # The exact remote report stays remote provenance, while opening the
++                    # downloaded result must use an uploaded image's original local path.
++                    result_folder=root/'result';result_folder.mkdir()
++                    original=str(root/'original image.tif')
++                    report=dict(source='/jobs/staged/input.tif', files=['labels.tif'],
++                                remote_execution=dict(requested_source=original, source_is_remote=False))
++                    (result_folder/'report.json').write_text(json.dumps(report))
++                    import numpy as np
++                    image=np.zeros((1,2,8,8),dtype=np.uint16)
++                    with patch('napari.Viewer',return_value=MagicMock()), \
++                         patch('napari_label_workflow.crops.inspect_image',return_value={}) as inspect, \
++                         patch('napari_label_workflow.crops.load_image',return_value=image) as load, \
++                         patch('tifffile.memmap',return_value=image[0]):
++                        dialog.open_result(result_folder)
++                        inspect.assert_called_once_with(original)
++                        self.assertEqual(load.call_args.args[0],original)
++                    dialog.close()
++            finally:
++                w.timer.stop();w.writer.shutdown(wait=True);w.pool.shutdown(wait=True);w.close();viewer.layers.clear();app.processEvents();gc.collect()
++                for p in reversed(patches):p.stop()
+--- a/tests/test_updater.py
++++ b/tests/test_updater.py
+@@ -57,7 +57,7 @@
+             self.assertFalse(updater.check("0.3.0", [str(a), str(b)]).available)
+             self.assertIn("No update folder", updater.check("0.2.0", []).message)
+             self.assertIn("Could not read", updater.check("0.2.0", [str(Path(d, "missing"))]).message)
+-            result = updater.check("0.2.0", ["file://" + str(b)])   # web-address feed (file:// stands in for https)
++            result = updater.check("0.2.0", [b.as_uri()])   # proper file URL also works with Windows drive letters
+             self.assertEqual(result.latest, "0.3.0"); self.assertTrue(result.info["_dmg"].startswith("file://"))
+ 
+     def test_github_style_feed_with_redirects(self):
+@@ -192,8 +192,11 @@
+             self.assertEqual(len(popups), 2)
+             latest, text, action = popups[0]
+             self.assertEqual(latest, "0.2.1"); self.assertIn("What’s new", text); self.assertIn("•  Faster inference", text)
+-            self.assertIn("•  New tour", text); self.assertIsNone(action)                         # source copy: explanation only
+-            self.assertIn("runs from source", text)
++            self.assertIn("•  New tour", text)
++            if sys.platform == "darwin":
++                self.assertIsNone(action); self.assertIn("runs from source", text)
++            else:
++                self.assertEqual(action, "Open download page"); self.assertIn("release page", text)
+             popups.clear()
+             with patch.object(sys, "platform", "win32"):
+                 w.updates.offer()
+--- /dev/null
++++ b/tests/test_updater_windows.py
+@@ -0,0 +1,79 @@
++"""Cross-platform updater contracts using real queued Qt signals; no downloads or installs."""
++import os
++import sys
++import tempfile
++import time
++from pathlib import Path
++from types import SimpleNamespace
++import unittest
++from unittest.mock import patch
++
++os.environ.setdefault('QT_QPA_PLATFORM', 'offscreen')
++
++
++class PortableVersionAndPaths(unittest.TestCase):
++    def test_running_source_version_wins_over_stale_wheel_metadata(self):
++        from napari_label_workflow import updater, __version__
++        with patch('importlib.metadata.version', return_value='0.1.20') as installed:
++            self.assertEqual(updater.current_version(), __version__)
++            installed.assert_not_called()
++
++    def test_platform_paths_preserve_mac_and_use_windows_localappdata(self):
++        from napari_label_workflow import updater
++        with tempfile.TemporaryDirectory() as folder:
++            home = Path(folder); local = home / 'Windows data'; xdg = home / 'Linux config'
++            with patch.object(Path, 'home', return_value=home), patch.dict(os.environ, {'LOCALAPPDATA': str(local), 'XDG_CONFIG_HOME': str(xdg)}):
++                with patch.object(sys, 'platform', 'win32'):
++                    self.assertEqual(updater.support_directory(), local / 'LabelWorkflow')
++                    with patch.dict(os.environ, {'LOCALAPPDATA': ''}):
++                        self.assertEqual(updater.support_directory(), home / 'AppData' / 'Local' / 'LabelWorkflow')
++                with patch.object(sys, 'platform', 'darwin'):
++                    self.assertEqual(updater.support_directory(), home / 'Library' / 'Application Support' / 'LabelWorkflow')
++                with patch.object(sys, 'platform', 'linux'):
++                    self.assertEqual(updater.support_directory(), xdg / 'LabelWorkflow')
++            self.assertEqual(list(home.iterdir()), [])  # resolving a path never creates an environment/settings tree
++
++
++class QueuedUpdateAnnouncement(unittest.TestCase):
++    def test_startup_mode_survives_worker_signal_and_respects_busy(self):
++        from qtpy.QtWidgets import QApplication, QWidget, QHBoxLayout
++        from napari_label_workflow import updater
++        from napari_label_workflow.update_panel import UpdateControls
++        app = QApplication.instance() or QApplication([])
++        wf = QWidget(); wf.header_row = QHBoxLayout(wf); wf.viewer = SimpleNamespace()
++        wf.busy = False; wf.guard = lambda action: action(); messages = []; wf._status = messages.append
++        controls = UpdateControls(wf)
++        result = updater.UpdateCheck(True, '0.2.5', '0.2.6', {'version': '0.2.6', 'notes': '- Faster preview', 'page': 'https://example.invalid/release'}, 'new release')
++        received = []; controls.relay.checked.connect(lambda value, mode: received.append((value, mode)))
++        popups = []
++
++        def wait_for_signal(before):
++            deadline = time.monotonic() + 5
++            while len(received) == before and time.monotonic() < deadline:
++                app.processEvents(); time.sleep(.001)
++            self.assertEqual(len(received), before + 1)
++            app.processEvents()
++
++        try:
++            with patch.object(sys, 'platform', 'win32'), patch.object(updater, 'check', return_value=result), \
++                 patch.object(updater, 'save_settings') as save, \
++                 patch.object(controls, '_popup', side_effect=lambda value, text, action: (popups.append((text, action)), 'no')[1]):
++                wf.busy = True; controls.check(quiet=True, announce=True); wait_for_signal(0)
++                self.assertEqual(received[-1][1], 'announce'); self.assertEqual(popups, [])
++                wf.busy = False; controls.check(quiet=True, announce=True); wait_for_signal(1)
++                self.assertEqual(received[-1][1], 'announce'); self.assertEqual(len(popups), 1)
++                self.assertEqual(popups[0][1], 'Open download page'); self.assertIn('Faster preview', popups[0][0])
++                controls.check(quiet=True); wait_for_signal(2)
++                self.assertIs(received[-1][1], True); self.assertEqual(len(popups), 1)
++                controls.check(quiet=False); wait_for_signal(3)
++                self.assertIs(received[-1][1], False); self.assertEqual(len(popups), 2)
++                self.assertEqual(save.call_count, 4)
++            with patch.object(sys, 'platform', 'win32'), patch.object(controls, '_popup', return_value='yes'), \
++                 patch('webbrowser.open') as browser, patch.object(updater, 'prepare') as install:
++                controls.offer(); browser.assert_called_once_with('https://example.invalid/release'); install.assert_not_called()
++        finally:
++            controls.relay.checked.disconnect(); wf.close(); wf.deleteLater(); app.processEvents()
++
++
++if __name__ == '__main__':
++    unittest.main()
