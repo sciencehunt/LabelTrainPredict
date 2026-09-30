@@ -1,0 +1,13 @@
+{
+  "created": "2026-09-30T17:50:49.843459+00:00",
+  "original_files": {
+    "G:\\D_Backup_20260924_NTFS\\files\\lightsheet\\napari-volume-masker\\src\\napari_volume_masker\\__init__.py": "3ca309cafbeb7249f85ec0cf8e734dab700c66b3693bb4a3aa94b4ccf72ccc67",
+    "G:\\D_Backup_20260924_NTFS\\files\\lightsheet\\napari-volume-masker\\src\\napari_volume_masker\\_widget.py": "6bf3ab6059318067beb18a7e6c892119edde0fc6f60893e160df5df5d023617a",
+    "G:\\D_Backup_20260924_NTFS\\files\\lightsheet\\napari-volume-masker\\src\\napari_volume_masker\\_masking.py": "ed0d446805aba4f27cb9bd2b9792ba245d5850b8827d60e9a042ef897cbb8672",
+    "G:\\D_Backup_20260924_NTFS\\files\\lightsheet\\napari-volume-masker\\src\\napari_volume_masker\\_gpu_mask.py": "eb240876971748367d5e5f84118fa4969cb9c5aabdba5562389e87128ad9fd6f",
+    "G:\\D_Backup_20260924_NTFS\\files\\lightsheet\\hudrg_tonemap3d_20260921.py": "a66e0d8fe06328b43def0616a403516dbb9b4467a2d4bd774bd7136557c1fe06"
+  },
+  "method": "Mantiuk-inspired global multiscale gradient least squares; display only",
+  "mapmask_license": "BSD-3-Clause",
+  "backup_modified": false
+}
