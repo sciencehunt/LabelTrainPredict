@@ -6,14 +6,14 @@
 
 It is built on [napari](https://napari.org) and PyTorch and runs on your own computer: on the Apple GPU of a Mac, on an NVIDIA GPU (CUDA) on Windows and Linux, or on the CPU. Your images never leave your machine unless you choose to train on your own workstation.
 
-The Mac app is called LTP from version 0.2.2. The Windows preview (0.1.20) still uses the former name, *Label Workflow*.
+The Mac app is called LTP from version 0.2.2. The Windows network-options preview (0.2.4) still uses the former name, *Label Workflow*.
 
 ## Download
 
 | System | Download | Notes |
 |---|---|---|
 | **Mac** (Apple silicon) | [Latest release](https://github.com/sciencehunt/LabelTrainPredict/releases/latest): `LTP-<version>.dmg` | Signed and notarized; updates itself |
-| **Windows** 10/11 x64 | [LTP 0.1.20 for Windows and Linux (preview)](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.1.20-windows-linux): installer zip + 2 app parts | Unsigned; no administrator rights needed |
+| **Windows** 10/11 x64 | [LTP 0.2.4 network-options preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.4-windows-network-preview): installer zip + app parts | SE/K3, custom capacity and auxiliary heads; CUDA required for instances |
 | **Linux** x86_64 | [Latest release](https://github.com/sciencehunt/LabelTrainPredict/releases/latest): `ltp-<version>-linux-x86_64.tar.gz` | Installs its packages from the internet |
 
 ### Mac
@@ -24,13 +24,11 @@ The Mac app is called LTP from version 0.2.2. The Windows preview (0.1.20) still
 
 ### Windows
 
-- **Requirements:** Windows 10 or 11 (64-bit), about 8 GB free disk space. An NVIDIA GPU with a current driver is used automatically (CUDA 12.6); otherwise the CPU is used.
-- **Download** from the release page, into **one folder**:
-  - `LTP-0.1.20-windows-x64-installer.zip`
-  - `LTP-0.1.20-windows-x64-app.part1` and `LTP-0.1.20-windows-x64-app.part2` (GitHub limits each file to 2 GB, so the 2.6 GB app comes in two parts)
-- **Install:** unzip the installer zip in that folder and double-click **Install Label Workflow.cmd**. The installer checks both parts against `SHA256SUMS.txt` and refuses damaged downloads. It installs for your user account (no administrator rights), and adds Start menu and desktop shortcuts.
-- **Security warning:** the files are not code-signed, so Windows SmartScreen may warn you. Choose *More info → Run anyway* if you trust this page.
-- **Uninstall:** Settings → Apps → Label Workflow. Your projects and settings are kept.
+- Download the installer ZIP and all app parts from the [0.2.4 network-options preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.4-windows-network-preview) into one folder. Unzip the installer there and run **Install Label Workflow.cmd**. Parts are checksum-verified; about 14 GB temporary disk space is advisable.
+- The app is unsigned. Instance training, prediction and decoding require an NVIDIA CUDA GPU; there is no silent CPU fallback for this path. Semantic workflows have separate device support.
+- **Advanced training:** SE U-Net or custom K3, optional SE attention, width/depth presets or Custom, individually enabled flow/embedding/offset heads, global and per-head loss weights. These auxiliary heads remain experimental.
+- **Advanced inference:** inspect checkpoint structure and override only decoder thresholds. Changing the network requires a newly trained checkpoint.
+- This preview preserves existing projects and does not replace the Mac updater. See [Mac parity notes](docs/MAC_NETWORK_PARITY.md) and [release notes](docs/WINDOWS_NETWORK_OPTIONS.md). The source/handoff archive is on the preview release; it is not a signed Mac build.
 
 ### Linux
 
