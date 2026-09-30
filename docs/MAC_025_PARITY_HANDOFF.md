@@ -1,4 +1,4 @@
-# Mac integration notes from Windows 0.2.5
+# Mac integration notes
 
 Start from the same published v0.2.5-mac-source first drop. Merge `WINDOWS_025_ADDITIONS.patch`; do not overwrite any unpublished Stage3 work. Source archive includes shared app source, tests and receipts. The old CUDA-only Mac parity note from Windows0.2.4 is superseded: accel.py now preserves the Mac MPS implementation.
 

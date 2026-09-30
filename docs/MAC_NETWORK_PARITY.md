@@ -1,4 +1,4 @@
-# Network-options parity handoff — Windows 0.2.4 preview
+# Mac network integration notes
 
 30 September 2026. Target repository: sciencehunt/LabelTrainPredict. The public v0.2.3 Linux wheel was downloaded and inspected: it contains none of `mednext_k3`, `auxiliary_heads`, `cuda_basin_v1`, or `se_attention` in widget/training, and has no architectures module. This is evidence about that Linux asset, not a binary inspection of the signed Mac DMG. The local 0.2.2 Windows build had the new backends but had not been published with that release.
 
@@ -8,7 +8,7 @@ All new controls live in Advanced training settings. New 3D instance projects st
 
 - Backbones: `se_unet`, `mednext_k3` (custom MedNeXt-inspired K3, not official pretrained MedNeXt).
 - SE attention independently on/off for either 3D instance backbone. Explicit K3 selection starts width32/depth4/SE off; user can enable SE.
-- Network-size presets and Custom base width8–64 / depth3–7. Capacity changes require a newly trained checkpoint. Later levels cap channels at320. Custom width must not be silently raised to16 in Round2.
+- Network-size presets and Custom base width8-64 / depth3-7. Capacity changes require a newly trained checkpoint. Later levels cap channels at320. Custom width must not be silently raised to16 in Round2.
 - Heads independently enabled: flow3, embedding8, offset3. Global auxiliary weight and individual nonnegative multipliers; effective weight is their product. Zero multiplier retains the head with no supervision; unchecking removes it.
 - CUDA basin v1 decoder; foreground threshold and split prominence. The three extra heads supervise training; the supported primary decoder still uses foreground/distance/boundary. Direct flow/embedding/voting decoders are research experiments and are not offered as production app choices.
 - Inference shows checkpoint-owned architecture, dimensions, attention, heads and weights read-only. Only explicit decoder thresholds and existing TTA controls may override inference behavior. Persist/audit overrides separately from checkpoint metadata.

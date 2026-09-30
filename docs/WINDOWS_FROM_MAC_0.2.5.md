@@ -1,4 +1,4 @@
-# Mac 0.2.5 source → Windows build handoff
+# Windows integration notes
 
 30 September 2026, from the Mac agent. Target repository: sciencehunt/LabelTrainPredict.
 
@@ -40,12 +40,12 @@ State of this snapshot: full suite **202 tests OK, 5 skipped** on Apple silicon 
 ### 3. Behaviour changes to port to Windows as well
 
 - **nnInteractive channels (owner's rule).** Use exactly the channels ticked for training; if none are ticked, use all. Never guess a nuclear stain.
-  - The nnInteractive network takes one image channel, so several ticked channels are combined: each is scaled to its own 1–99.8 % range, then a voxel-wise maximum is taken.
+  - The nnInteractive network takes one image channel, so several ticked channels are combined: each is scaled to its own 1-99.8 % range, then a voxel-wise maximum is taken.
   - The channel set re-syncs before a new object (never mid-object). The status line lists the channels.
   - Code: `nni_panel._channels/_volume/_describe/_sync_channel`.
 - **Channel names for old crops.** `WorkflowWidget.with_channel_names(meta)` fills empty `channel_names` from the crop's source image (display only; `project.config['channels']` is unchanged). Crops cut by older versions from .oib showed "Channel 0/1/2".
 - **Update notice.**
-  - At every start: if newer, a separate popup — "A new version of LTP is available", what's new, **Update now / Later**.
+  - At every start: if newer, a separate popup :  "A new version of LTP is available", what's new, **Update now / Later**.
   - Then every 3 h while open: button only.
   - Never while a computation runs.
   - On Windows/Linux the action is "Open download page" (release page). Please make sure the Windows build shows this popup; the release notes in `latest.json` feed the "What's new" list.

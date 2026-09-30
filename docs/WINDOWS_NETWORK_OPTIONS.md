@@ -1,4 +1,4 @@
-# LTP 0.2.4 — Windows network-options preview
+# LTP 0.2.4 :  Windows network-options preview
 
 This Windows preview publishes the SE/K3 and auxiliary-head work that was present in a separate local build but absent from the inspected public v0.2.3 Linux wheel. It does not replace the signed Mac v0.2.3 release or its updater manifest.
 
@@ -6,7 +6,7 @@ This Windows preview publishes the SE/K3 and auxiliary-head work that was presen
 
 - SE residual U-Net and custom MedNeXt-inspired K3.
 - Optional SE channel attention on either 3D instance backbone.
-- Network-size presets or custom base filters (8–64) and resolution levels (3–7).
+- Network-size presets or custom base filters (8-64) and resolution levels (3-7).
 - Flow, embedding and center-offset auxiliary heads, individually enabled, with global and per-head loss weights.
 - GPU basin decoding with foreground and split thresholds; all settings saved with the project/trained checkpoint.
 

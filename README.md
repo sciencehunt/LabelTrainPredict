@@ -2,109 +2,40 @@
 
 # LTP | Label, Train, Predict
 
-**LTP** (Label Train Predict) is a desktop app for labelling 3D microscopy images and training your own segmentation model, without writing code. Label a few regions, train, correct the model's suggestions, and run the final model on whole images of any size.
+LTP is a desktop application for creating training data and segmenting 3D microscopy images. Annotate regions or individual objects, train a model on your data, review predictions, and process larger image volumes using local or remote compute.
 
-It is built on [napari](https://napari.org) and PyTorch and runs on your own computer or a server. It works with apple silicone and NVIDIA GPUs (CUDA) on Windows and Linux, as well as on CPU.
-
+Built with napari and PyTorch, LTP brings image annotation, model training and result inspection into one workflow.
 
 ## Download
 
-| System | Download | Notes |
+| Platform | Download | Availability |
 |---|---|---|
-| **Mac** (Apple silicon) | [Latest release](https://github.com/sciencehunt/LabelTrainPredict/releases/latest): `LTP-<version>.dmg` | Signed and notarized; updates itself |
-| **Windows** 10/11 x64 | [LTP 0.2.5 Windows parity preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-windows-parity-preview): installer zip + app parts | Published Mac 0.2.5 features, SE/K3/auxiliary heads, remote GPU inference |
-| **Linux** x86_64 | [LTP 0.2.5 Windows parity preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-windows-parity-preview): `ltp-0.2.5-linux-x86_64.tar.gz` (same app code as Windows 0.2.5), or `ltp-<version>` from the [latest release](https://github.com/sciencehunt/LabelTrainPredict/releases/latest) | Installs its packages from the internet; CUDA required for instances in 0.2.5 |
+| macOS, Apple silicon | [Mac release](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.4) | Signed application for macOS 14 or newer. |
+| Windows 10/11, x64 | [Windows preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-windows-parity-preview) | Installer and application parts. NVIDIA CUDA is required for local instance segmentation. |
+| Linux, x86_64 | [Linux preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-windows-parity-preview) | Download the Linux archive. The GPU engine has been tested; desktop validation is pending. |
 
-### Mac
+For source packages, see the [source preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-workspaces-preview). Download the installer for your platform to run the application.
 
-- **Requirements:** a Mac with Apple silicon (M1 or newer) and macOS 14 Sonoma or newer.
-- **Memory:** 16 GB or more is recommended. 8 GB Macs work with an automatically reduced network.
-- **Install:** open the DMG and drag **LTP** into **Applications**. The app is signed and notarized by Apple, so it opens without security warnings.
+See [installation and hardware requirements](docs/GETTING_STARTED.md) before downloading. Preview releases may contain experimental features.
 
-### Windows
+## Work with your images
 
-- Download the installer ZIP and all app parts from the [0.2.5 Windows parity preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-windows-parity-preview) into one folder. Unzip the installer there and run **Install Label Workflow.cmd**. Parts are checksum-verified; about 14 GB temporary disk space is advisable.
-- The app is unsigned. Instance training, prediction and decoding require an NVIDIA CUDA GPU; there is no silent CPU fallback for this path. Semantic workflows have separate device support.
-- **Advanced training:** SE U-Net or custom K3, optional SE attention, width/depth presets or Custom, individually enabled flow/embedding/offset heads, global and per-head loss weights. These auxiliary heads remain experimental.
-- **Advanced inference:** inspect checkpoint structure and override only decoder thresholds. Changing the network requires a newly trained checkpoint.
-- **Remote inference:** choose Workstation (SSH) in Run on full images. The server selects its available GPU and tunes tile batching against measured speed/free memory; the client receives verified, unreviewed results. Neural inference never falls back to CPU on this route.
-- This preview preserves projects and the Mac update feed. It matches the published first Mac 0.2.5 source handoff; the planned Stage 3/results-browser second drop is not included yet. See [release and test notes](docs/WINDOWS_025_PARITY.md) and [Mac merge notes](docs/MAC_025_PARITY_HANDOFF.md).
+- **Label:** paint regions on slices or annotate complete 3D objects. Review model suggestions before using them as training labels.
+- **Train:** fit a segmentation model to your microscopy data. Advanced settings expose network structure and experimental flow, embedding and offset outputs.
+- **Predict:** process images in blocks locally or on an SSH GPU workstation, then inspect saved results and create correction crops.
+- **Preprocess:** use Mantiuk-inspired 3D contrast compression on a remote CUDA workstation. Corrected images are saved separately from the originals. Available in the latest source preview.
+- **View Output:** inspect images and predictions, and combine up to eight masks from different projects using inclusion, exclusion, union or intersection. Available in the latest source preview.
 
-### Linux
+Original images, manual annotations and model predictions remain separate. Unlabelled pixels are not automatically treated as background. Predictions require review before they become training data.
 
-- **Requirements:** x86_64 with Python 3.10–3.12 and `venv` (Ubuntu: `sudo apt install python3.12-venv`). Tested target: Ubuntu 22.04/24.04. An NVIDIA GPU is used automatically when `nvidia-smi` works.
-- **Install** (no root needed; downloads about 4 GB of Python packages, including PyTorch, the first time):
+## Documentation
 
-  ```bash
-  tar xzf ltp-0.2.5-linux-x86_64.tar.gz
-  cd ltp-0.2.5-linux-x86_64
-  ./install.sh
-  ```
+- [Install and get started](docs/GETTING_STARTED.md)
+- [Annotation, training and output workflows](docs/WORKFLOWS.md)
+- [Technical documentation](docs/README.md)
 
-  Start **LTP** from the applications menu or with `ltp` (`label-workflow` also works). A minimal system may need the usual Qt/X11 libraries: `sudo apt install libxcb-cursor0 libgl1 libegl1 libxkbcommon-x11-0`.
-- **GPU server:** `./install.sh --headless` installs only the training and inference engine, for use with *Train on workstation*.
-- **Uninstall:** `~/.local/share/label-workflow/uninstall.sh`. Your projects and settings are kept.
-- **0.2.5 preview:** the same app code as Windows 0.2.5 (all 45 source files identical): the published Mac 0.2.5 features plus the Windows Advanced training options and inference workflows. Instance training, prediction and decoding require an NVIDIA CUDA GPU. Use the same commands with the `ltp-<version>` package from the latest release for the Mac-matched version.
-- **Status:** the headless engine is tested on Ubuntu 24.04 with an NVIDIA GPU (0.2.5: SE U-Net with flow/embedding/offset heads and K3 trained and predicted with the GPU decoder; 2.5D batched prediction; new inference modules load). The full desktop install on Linux has not yet been tested on a Linux desktop.
+For a problem report, use [GitHub Issues](https://github.com/sciencehunt/LabelTrainPredict/issues) and include your operating system, app version, relevant diagnostics and reproduction steps. Share synthetic examples where possible; do not attach confidential images or credentials.
 
-### Updates
+## License
 
-**Mac:** from version 0.2.2 on, the app checks this page for new versions, at most every few hours. When a new version is available, an **⬆ Update** button appears in the top bar. You can also use **Help → LTP: Check for updates…**.
-
-Before anything is installed, the update is verified in three ways:
-- the file checksum must match;
-- the app must carry the developer's Apple signature;
-- Apple's notarization must be valid.
-
-Your project is saved, the app restarts on the same project, and the previous version is kept so it can be restored. The update check only reads this page; nothing about you or your data is sent. Versions 0.2.1 and older (then called *Label Workflow*) need a one-time manual install of the latest version; projects and settings carry over.
-
-**Windows and Linux:** from 0.2.2 on, the app shows an **⬆ Update** button that opens this page when a new version is out; download and install it from here. Installing over an existing version replaces it only after the new one is fully unpacked.
-
-## What it does
-
-**Stage 1 · Setup**
-- **Choose the kind of labelling.** *Regions* covers areas and structures such as vessels or tissue types. *Individual objects* covers nuclei and cells, where each gets its own ID for counting and measuring.
-- **Add images.** Add TIFF, OME-TIFF, Imaris (.ims), Olympus (.oib) and other files or folders, or connect a dataset on another computer over SSH. Original files are never changed.
-- **Crops.** 🎲 *Random* crops are spread across positions, depths and brightness levels, even inside a single large light-sheet image. You can also place each crop yourself.
-- **Where to train.** Train on this computer, or on a GPU workstation or server over SSH. SSH uses key-based login and no password is stored.
-
-**Stage 2 · Training**
-- **Round 1 (2.5D).** Paint single slices, using *Complete masks* or fast *Quick strokes*. Train, then accept and correct the model's suggestions slice by slice.
-- **Round 2 (3D).** Work on whole volumes. Accept a whole-stack prediction at once, jump to the **most uncertain areas**, and retrain.
-- **Finished objects (3D)** for instance segmentation. Mark objects ✓ Finished; ◧ Complete shows exactly what training will use. The **☰ Objects list** has sortable measurements, jump-to-object and multi-delete.
-- **Assisted labelling:**
-  - **nnInteractive:** click an object and get its 3D outline;
-  - **Smart select** (micro-SAM);
-  - **Cellpose-SAM:** outline every nucleus in one pass.
-- **Separating touching objects.** Tuned automatically on your labels; a live *Split* slider fine-tunes it.
-
-**Run on full images**
-- Label every voxel of whole images, either one file or a whole folder. Big volumes are processed in blended blocks, so there are no tile seams.
-- Each run saves a prediction, a probability map and a per-object volume table.
-- The best 2.5D and 3D models are kept in the project's `models/` folder, together with a script to run them without the app.
-
-A built-in **Tour** walks through every step, and the **?** button explains each term in plain language. *Practice with sample data* creates a small synthetic project to try everything safely.
-
-## Project folder
-
-```
-MyProject/
-  training_images/     crops used for labelling
-  training_labels/     your labels
-  training_outputs/    training runs and checkpoints
-  inference_outputs/   full-image predictions, probability maps, object tables
-  models/              best_2.5D_<channels>.pt, best_3D_<channels>.pt, run_inference.py
-```
-
-## Third-party components
-
-LTP uses napari, PyTorch, Qt (PySide6), scikit-image, SciPy, tifffile and other open-source packages under their own licences.
-
-Optional helpers are downloaded only when you first use them, and only after you agree:
-- **nnInteractive** (weights under CC BY-NC-SA 4.0, **non-commercial use only**);
-- the **Segment Anything / micro-SAM** models;
-- **Cellpose-SAM**.
-
-## Licence
-
-Apache License 2.0. See [LICENSE](LICENSE).
+LTP is distributed under the [Apache License 2.0](LICENSE). Dependencies and optional pretrained models retain their own licenses.

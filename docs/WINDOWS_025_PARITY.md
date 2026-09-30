@@ -1,4 +1,4 @@
-# LTP Windows 0.2.5 — Mac source parity and remote GPU inference
+# Windows build notes
 
 ## Included
 

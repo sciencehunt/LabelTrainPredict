@@ -1,4 +1,4 @@
-# Preprocess and View Output — 30 September 2026
+# Preprocess and View Output :  30 September 2026
 
 The app now exposes Workspace → Preprocess, Label / train, Inference, and View output. The new modes use the user's Mantiuk-inspired 3D solver and MapMask implementation recovered read-only from `G:/D_Backup_20260924_NTFS/files/lightsheet`. Exact original source hashes are in PREPROCESS_PROVENANCE.json.
 
