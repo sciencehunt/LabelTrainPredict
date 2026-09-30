@@ -1,6 +1,6 @@
 <p align="center"><img src="docs/ltp_logo.png" width="180" alt="LTP logo"></p>
 
-# LTP — Label, Train, Predict
+# LTP | Label, Train, Predict
 
 **LTP** (Label Train Predict, formerly *Label Workflow*) is a desktop app for labelling 3D microscopy images and training your own segmentation model, without writing code. Label a few regions, train, correct the model's suggestions, and run the final model on whole images of any size.
 
