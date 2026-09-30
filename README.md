@@ -4,9 +4,8 @@
 
 **LTP** (Label Train Predict) is a desktop app for labelling 3D microscopy images and training your own segmentation model, without writing code. Label a few regions, train, correct the model's suggestions, and run the final model on whole images of any size.
 
-It is built on [napari](https://napari.org) and PyTorch and runs on your own computer: on the Apple GPU of a Mac, on an NVIDIA GPU (CUDA) on Windows and Linux, or on the CPU. Your images never leave your machine unless you choose to train or predict on your own workstation.
+It is built on [napari](https://napari.org) and PyTorch and runs on your own computer or a server. It works with apple silicone and NVIDIA GPUs (CUDA) on Windows and Linux, as well as on CPU.
 
-The Mac app is called LTP from version 0.2.2. The Windows 0.2.5 parity preview uses LTP branding; its installer and existing settings retain the former *Label Workflow* name.
 
 ## Download
 
