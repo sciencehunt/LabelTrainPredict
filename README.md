@@ -14,7 +14,7 @@ The Mac app is called LTP from version 0.2.2. The Windows 0.2.5 parity preview u
 |---|---|---|
 | **Mac** (Apple silicon) | [Latest release](https://github.com/sciencehunt/LabelTrainPredict/releases/latest): `LTP-<version>.dmg` | Signed and notarized; updates itself |
 | **Windows** 10/11 x64 | [LTP 0.2.5 Windows parity preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-windows-parity-preview): installer zip + app parts | Published Mac 0.2.5 features, SE/K3/auxiliary heads, remote GPU inference |
-| **Linux** x86_64 | [LTP 0.2.4 network-options preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.4-windows-network-preview): `ltp-0.2.4-linux-x86_64.tar.gz` (same features as Windows 0.2.4), or `ltp-<version>` from the [latest release](https://github.com/sciencehunt/LabelTrainPredict/releases/latest) | Installs its packages from the internet; CUDA required for instances in 0.2.4 |
+| **Linux** x86_64 | [LTP 0.2.5 Windows parity preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-windows-parity-preview): `ltp-0.2.5-linux-x86_64.tar.gz` (same app code as Windows 0.2.5), or `ltp-<version>` from the [latest release](https://github.com/sciencehunt/LabelTrainPredict/releases/latest) | Installs its packages from the internet; CUDA required for instances in 0.2.5 |
 
 ### Mac
 
@@ -37,16 +37,16 @@ The Mac app is called LTP from version 0.2.2. The Windows 0.2.5 parity preview u
 - **Install** (no root needed; downloads about 4 GB of Python packages, including PyTorch, the first time):
 
   ```bash
-  tar xzf ltp-0.2.4-linux-x86_64.tar.gz
-  cd ltp-0.2.4-linux-x86_64
+  tar xzf ltp-0.2.5-linux-x86_64.tar.gz
+  cd ltp-0.2.5-linux-x86_64
   ./install.sh
   ```
 
   Start **LTP** from the applications menu or with `ltp` (`label-workflow` also works). A minimal system may need the usual Qt/X11 libraries: `sudo apt install libxcb-cursor0 libgl1 libegl1 libxkbcommon-x11-0`.
 - **GPU server:** `./install.sh --headless` installs only the training and inference engine, for use with *Train on workstation*.
 - **Uninstall:** `~/.local/share/label-workflow/uninstall.sh`. Your projects and settings are kept.
-- **0.2.4 preview:** the same app code as Windows 0.2.4 (all 38 source files identical), with the same Advanced training options. Instance training, prediction and decoding require an NVIDIA CUDA GPU. Use the same commands with the `ltp-<version>` package from the latest release for the Mac-matched version.
-- **Status:** the headless engine is tested on Ubuntu 24.04 with an NVIDIA GPU (0.2.4: SE U-Net with flow/embedding/offset heads and K3, trained and predicted with the CUDA decoder). The full desktop install on Linux has not yet been tested on a Linux desktop.
+- **0.2.5 preview:** the same app code as Windows 0.2.5 (all 45 source files identical): the published Mac 0.2.5 features plus the Windows Advanced training options and inference workflows. Instance training, prediction and decoding require an NVIDIA CUDA GPU. Use the same commands with the `ltp-<version>` package from the latest release for the Mac-matched version.
+- **Status:** the headless engine is tested on Ubuntu 24.04 with an NVIDIA GPU (0.2.5: SE U-Net with flow/embedding/offset heads and K3 trained and predicted with the GPU decoder; 2.5D batched prediction; new inference modules load). The full desktop install on Linux has not yet been tested on a Linux desktop.
 
 ### Updates
 
