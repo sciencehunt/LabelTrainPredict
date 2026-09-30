@@ -1,24 +1,26 @@
+<p align="center"><img src="docs/ltp_logo.png" width="180" alt="LTP logo"></p>
+
 # LTP — Label, Train, Predict
 
 **LTP** (Label Train Predict, formerly *Label Workflow*) is a desktop app for labelling 3D microscopy images and training your own segmentation model, without writing code. Label a few regions, train, correct the model's suggestions, and run the final model on whole images of any size.
 
 It is built on [napari](https://napari.org) and PyTorch and runs on your own computer: on the Apple GPU of a Mac, on an NVIDIA GPU (CUDA) on Windows and Linux, or on the CPU. Your images never leave your machine unless you choose to train on your own workstation.
 
-Some downloads and the app window still use the former name, *Label Workflow*.
+The Mac app is called LTP from version 0.2.2. The Windows preview (0.1.20) still uses the former name, *Label Workflow*.
 
 ## Download
 
 | System | Download | Notes |
 |---|---|---|
-| **Mac** (Apple silicon) | [Latest release](https://github.com/sciencehunt/LabelTrainPredict/releases/latest): `Label-Workflow-<version>.dmg` | Signed and notarized; updates itself |
+| **Mac** (Apple silicon) | [Latest release](https://github.com/sciencehunt/LabelTrainPredict/releases/latest): `LTP-<version>.dmg` | Signed and notarized; updates itself |
 | **Windows** 10/11 x64 | [LTP 0.1.20 for Windows and Linux (preview)](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.1.20-windows-linux): installer zip + 2 app parts | Unsigned; no administrator rights needed |
-| **Linux** x86_64 | [Same preview release](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.1.20-windows-linux): `label-workflow-0.1.20-linux-x86_64.tar.gz` | Installs its packages from the internet |
+| **Linux** x86_64 | [Latest release](https://github.com/sciencehunt/LabelTrainPredict/releases/latest): `ltp-<version>-linux-x86_64.tar.gz` | Installs its packages from the internet |
 
 ### Mac
 
 - **Requirements:** a Mac with Apple silicon (M1 or newer) and macOS 14 Sonoma or newer.
 - **Memory:** 16 GB or more is recommended. 8 GB Macs work with an automatically reduced network.
-- **Install:** open the DMG and drag the app into **Applications**. The app is signed and notarized by Apple, so it opens without security warnings.
+- **Install:** open the DMG and drag **LTP** into **Applications**. The app is signed and notarized by Apple, so it opens without security warnings.
 
 ### Windows
 
@@ -36,28 +38,28 @@ Some downloads and the app window still use the former name, *Label Workflow*.
 - **Install** (no root needed; downloads about 4 GB of Python packages, including PyTorch, the first time):
 
   ```bash
-  tar xzf label-workflow-0.1.20-linux-x86_64.tar.gz
-  cd label-workflow-0.1.20-linux-x86_64
+  tar xzf ltp-0.2.2-linux-x86_64.tar.gz
+  cd ltp-0.2.2-linux-x86_64
   ./install.sh
   ```
 
-  Start it from the applications menu or with `label-workflow`. A minimal system may need the usual Qt/X11 libraries: `sudo apt install libxcb-cursor0 libgl1 libegl1 libxkbcommon-x11-0`.
+  Start **LTP** from the applications menu or with `ltp` (`label-workflow` also works). A minimal system may need the usual Qt/X11 libraries: `sudo apt install libxcb-cursor0 libgl1 libegl1 libxkbcommon-x11-0`.
 - **GPU server:** `./install.sh --headless` installs only the training and inference engine, for use with *Train on workstation*.
 - **Uninstall:** `~/.local/share/label-workflow/uninstall.sh`. Your projects and settings are kept.
 - **Status:** the headless engine is tested on Ubuntu 24.04 with an NVIDIA GPU. The full desktop install on Linux has not yet been tested on a Linux desktop.
 
 ### Updates
 
-**Mac:** from version 0.2.2 on, the app checks this page for new versions, at most every few hours. When a new version is available, an **⬆ Update** button appears in the top bar. You can also use **Help → Label Workflow: Check for updates…**.
+**Mac:** from version 0.2.2 on, the app checks this page for new versions, at most every few hours. When a new version is available, an **⬆ Update** button appears in the top bar. You can also use **Help → LTP: Check for updates…**.
 
 Before anything is installed, the update is verified in three ways:
 - the file checksum must match;
 - the app must carry the developer's Apple signature;
 - Apple's notarization must be valid.
 
-Your project is saved, the app restarts on the same project, and the previous version is kept so it can be restored. The update check only reads this page; nothing about you or your data is sent. Versions 0.2.1 and older need a one-time manual install of the latest version.
+Your project is saved, the app restarts on the same project, and the previous version is kept so it can be restored. The update check only reads this page; nothing about you or your data is sent. Versions 0.2.1 and older (then called *Label Workflow*) need a one-time manual install of the latest version; projects and settings carry over.
 
-**Windows and Linux:** download and install new versions from this page. Installing over an existing version replaces it only after the new one is fully unpacked.
+**Windows and Linux:** from 0.2.2 on, the app shows an **⬆ Update** button that opens this page when a new version is out; download and install it from here. Installing over an existing version replaces it only after the new one is fully unpacked.
 
 ## What it does
 
