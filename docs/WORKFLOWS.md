@@ -1,6 +1,6 @@
 # Workflows
 
-Features depend on the installed package. The latest source preview includes Preprocess and View Output; the older packaged downloads do not yet include those workspaces.
+The interface groups work into preprocessing, project setup, labelling, training, prediction and review. Advanced controls expose experimental methods and detailed settings.
 
 ## Label and train
 
@@ -14,13 +14,15 @@ Advanced training settings expose SE 3D U-Net and K3 choices, network size and o
 
 Select a trained checkpoint, input images and a local or SSH execution target. Large volumes use tiled inference. Review the resulting segmentations, especially crop edges, touching objects and unfamiliar image conditions. Low-confidence regions are a review aid, not a calibrated measure of biological accuracy.
 
-The newer inference workspace can browse saved results and create correction crops from the original image intensities. Predictions are saved as unreviewed outputs. Advanced inference controls adjust supported decoder thresholds; network structure comes from the checkpoint.
+The inference workspace can browse saved results and create correction crops. Predictions are saved as unreviewed outputs. Advanced inference controls adjust supported decoder thresholds; network structure comes from the checkpoint.
 
 ## Preprocess
 
-The Mantiuk-inspired multiscale 3D method compresses image contrast for visualization using a global gradient-based solve. Select a channel, confirm physical voxel spacing and choose native sampling or a smaller preview. The solve runs on a configured remote CUDA workstation.
+Preprocess is optional. On Windows it has a separate navigation step before Setup, so an image can be processed before creating a project. Choose a local image or a file on a connected SSH workstation. The app reads channel names and voxel calibration from metadata. Select one or more channels, review the suggested method, and compare a quick test before accepting a full run. Advanced settings expose method selection, noise reduction, sampling and voxel-size overrides.
 
-Original and corrected images are saved separately. This is a display derivative, not a claim of quantitative normalization, recovered signal or improved biological accuracy. Training inputs remain the original images. The current implementation processes one channel per run and rejects volumes that exceed its conservative GPU memory estimate.
+Illumination correction estimates broad brightness variation; Mantiuk-inspired multiscale compression reduces large contrast differences while retaining local detail. Both alter intensities. Outputs are saved separately and must not replace originals for fluorophore quantification. A correction does not establish quantitative normalization or improved segmentation accuracy.
+
+On Windows, **Use accepted image for labelling** explicitly imports an accepted, uncropped full-resolution copy. Its report and original source identity remain recorded, and both versions stay in the same source group for evaluation. This does not create reviewed labels. Keep training and inference image preparation consistent. Cropped tests and reduced-resolution previews cannot be imported through this route.
 
 ## View Output
 

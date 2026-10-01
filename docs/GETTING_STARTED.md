@@ -2,7 +2,9 @@
 
 ## Windows
 
-Download the installer ZIP and every `app.partN` file from the [Windows release](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-windows-parity-preview). Keep them in one folder, extract the installer into that folder, and run **Install Label Workflow.cmd**. The installer verifies the application checksums. Allow approximately 14 GB of temporary disk space.
+Download the [Windows installer ZIP](https://github.com/sciencehunt/LabelTrainPredict/releases/latest/download/LTP-windows-x64-installer.zip), extract it into a writable folder, and run **Install Label Workflow.cmd**. It downloads the required application parts and verifies their SHA-256 checksums. Allow at least 30 GB of temporary disk space, plus space for any previous installation retained as a backup.
+
+For offline installation, download every `LTP-windows-x64-app.partN` file from the same release and place them beside `install.ps1`. Do not mix files from different releases. Administrator rights are not required.
 
 The Windows application is unsigned. Local instance training, prediction and decoding require an NVIDIA CUDA GPU. Alternatively, configure an SSH GPU workstation. The instance pipeline does not silently fall back to CPU.
 
@@ -38,6 +40,6 @@ Use the built-in Tour and help buttons for guidance. Keep a backup of your proje
 
 Remote neural training and inference run on the workstation GPU. Inference adjusts batching to available GPU memory and measured throughput. Image loading, file transfer, interface work and some bookkeeping still use the CPU; GPU execution does not mean the entire application avoids CPU work.
 
-The latest source preview includes a remote CUDA/CuPy preprocessing solver. It requires an existing compatible workstation environment and does not install one automatically. Its global solve is limited by available GPU memory. Smaller strided previews can miss fine structures.
+Preprocessing supports a local NVIDIA GPU on Windows, Apple GPU on macOS, or a configured CUDA workstation over SSH. The Windows package includes an isolated CuPy dependency overlay. Remote work requires an existing compatible workstation environment; the app does not install one automatically. Available GPU memory limits the global illumination solve. Smaller strided previews can miss fine structures.
 
-The source preview also adds GPU rendering for 3D mask combinations. Mask preparation and file reading can use the CPU.
+View Output supports GPU rendering for 3D mask combinations. Mask preparation and file reading can use the CPU.
