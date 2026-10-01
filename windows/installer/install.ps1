@@ -38,6 +38,10 @@ Assert-Child $Destination $Parent
 $Archive = Join-Path $Here "LabelWorkflow-app.zip"
 $Version = (Get-Content (Join-Path $Here "VERSION.txt") -ErrorAction SilentlyContinue | Select-Object -First 1)
 if ($Version -notmatch '^\d+\.\d+\.\d+$') { throw 'Missing or invalid installer version.' }
+$ReleaseTag = "v$Version"
+$tagFile = Join-Path $Here 'RELEASE_TAG.txt'
+if (Test-Path -LiteralPath $tagFile) { $ReleaseTag = (Get-Content -LiteralPath $tagFile | Select-Object -First 1).Trim() }
+if ($ReleaseTag -notmatch ('^v' + [regex]::Escape($Version) + '(?:-[A-Za-z0-9][A-Za-z0-9.-]*)?$')) { throw 'Invalid installer release tag.' }
 function Say($m) { if (-not $Quiet) { Write-Host $m } }
 
 $Joined = $null
@@ -54,7 +58,7 @@ if (-not (Test-Path $Archive)) {
     if (-not (Test-Path -LiteralPath $partPath)) {
       $partial = $partPath + '.' + [guid]::NewGuid().ToString('N') + '.partial'
       Say "Downloading $name (this may take several minutes)..."
-      Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/sciencehunt/LabelTrainPredict/releases/download/v$Version/$name" -OutFile $partial
+      Invoke-WebRequest -UseBasicParsing -Uri "https://github.com/sciencehunt/LabelTrainPredict/releases/download/$ReleaseTag/$name" -OutFile $partial
       if ((Get-LtpFileHash -LiteralPath $partial -Algorithm SHA256).Hash -ne $manifest[$name]) { throw "Download failed verification: $partial" }
       Move-Item -LiteralPath $partial -Destination $partPath
     }

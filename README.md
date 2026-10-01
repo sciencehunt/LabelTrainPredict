@@ -11,10 +11,10 @@ Built with napari and PyTorch, LTP brings image annotation, model training and r
 | Platform | Download | Availability |
 |---|---|---|
 | macOS, Apple silicon | [**Download LTP for Mac (latest)**](https://github.com/sciencehunt/LabelTrainPredict/releases/latest/download/LTP-mac.dmg) | Always the newest version. Signed and notarized for macOS 14 or newer; updates itself (a window at start-up offers new versions). [Release notes](https://github.com/sciencehunt/LabelTrainPredict/releases/latest). |
-| Windows 10/11, x64 | [**Download LTP for Windows (latest)**](https://github.com/sciencehunt/LabelTrainPredict/releases/latest/download/LTP-windows-x64-installer.zip) | Extract the ZIP and run the installer. It downloads and verifies the application files. NVIDIA CUDA is required for local instance segmentation. |
+| Windows 10/11, x64 | [**Download LTP for Windows**](https://github.com/sciencehunt/LabelTrainPredict/releases/download/v0.2.8-windows.1/LTP-windows-x64-installer.zip) | Version 0.2.8. Extract the ZIP and run the installer. It downloads and verifies the application files. NVIDIA CUDA is required for local instance segmentation. [Release notes](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.8-windows.1). |
 | Linux, x86_64 | [**Download LTP for Linux (latest)**](https://github.com/sciencehunt/LabelTrainPredict/releases/latest/download/ltp-linux-x86_64.tar.gz) | Always the newest version, built from the same source as the Mac release. The GPU engine has been tested; desktop validation is pending. |
 
-These links point to the current release. The Mac app offers automatic updates; Windows and Linux users can download a newer package when notified. Source archives are attached to the [releases page](https://github.com/sciencehunt/LabelTrainPredict/releases/latest).
+These links provide the current download for each platform. The Mac app offers automatic updates; Windows and Linux users can download a newer package when notified. Corresponding source archives are attached to each platform's release on the [releases page](https://github.com/sciencehunt/LabelTrainPredict/releases).
 
 See [installation and hardware requirements](docs/GETTING_STARTED.md) before downloading. Preview releases may contain experimental features.
 
