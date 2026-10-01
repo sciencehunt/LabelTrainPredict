@@ -10,7 +10,7 @@ Built with napari and PyTorch, LTP brings image annotation, model training and r
 
 | Platform | Download | Availability |
 |---|---|---|
-| macOS, Apple silicon | [Mac release 0.2.5](https://github.com/sciencehunt/LabelTrainPredict/releases/latest) | Signed and notarized for macOS 14 or newer; updates itself (a window at start-up offers new versions). |
+| macOS, Apple silicon | [Mac release 0.2.6](https://github.com/sciencehunt/LabelTrainPredict/releases/latest) | Signed and notarized for macOS 14 or newer; updates itself (a window at start-up offers new versions). |
 | Windows 10/11, x64 | [Windows preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-windows-parity-preview) | Installer and application parts. NVIDIA CUDA is required for local instance segmentation. |
 | Linux, x86_64 | [Linux preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-windows-parity-preview) | Download the Linux archive. The GPU engine has been tested; desktop validation is pending. |
 
