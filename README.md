@@ -10,7 +10,7 @@ Built with napari and PyTorch, LTP brings image annotation, model training and r
 
 | Platform | Download | Availability |
 |---|---|---|
-| macOS, Apple silicon | [Mac release](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.4) | Signed application for macOS 14 or newer. |
+| macOS, Apple silicon | [Mac release 0.2.5](https://github.com/sciencehunt/LabelTrainPredict/releases/latest) | Signed and notarized for macOS 14 or newer; updates itself (a window at start-up offers new versions). |
 | Windows 10/11, x64 | [Windows preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-windows-parity-preview) | Installer and application parts. NVIDIA CUDA is required for local instance segmentation. |
 | Linux, x86_64 | [Linux preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-windows-parity-preview) | Download the Linux archive. The GPU engine has been tested; desktop validation is pending. |
 
@@ -20,11 +20,12 @@ See [installation and hardware requirements](docs/GETTING_STARTED.md) before dow
 
 ## Work with your images
 
+- **Open:** TIFF/OME-TIFF, Imaris .ims, Olympus .oib/.oif and .oir, and more; images are shown at their physical voxel size with a scale bar.
 - **Label:** paint regions on slices or annotate complete 3D objects. Review model suggestions before using them as training labels.
 - **Train:** fit a segmentation model to your microscopy data. Advanced settings expose network structure and experimental flow, embedding and offset outputs.
 - **Predict:** process images in blocks locally or on an SSH GPU workstation, then inspect saved results and create correction crops.
-- **Preprocess:** use Mantiuk-inspired 3D contrast compression on a remote CUDA workstation. Corrected images are saved separately from the originals. Available in the latest source preview.
-- **View Output:** inspect images and predictions, and combine up to eight masks from different projects using inclusion, exclusion, union or intersection. Available in the latest source preview.
+- **Preprocess:** even out uneven illumination (multiscale 3D gain field with noise reduction) or compress contrast (Mantiuk-inspired 3D), with an automatic recommendation and a side-by-side comparison before you accept. Runs on the Mac's Apple GPU or on a CUDA workstation over SSH; experimental angle-aware de-striping in Advanced. Corrected images are display copies saved separately from the originals.
+- **View Output:** inspect images and predictions, and combine up to eight masks from different projects using inclusion, exclusion, union or intersection. In the Mac release 0.2.5 and the source previews.
 
 Original images, manual annotations and model predictions remain separate. Unlabelled pixels are not automatically treated as background. Predictions require review before they become training data.
 
