@@ -11,6 +11,7 @@ class DownloadReportTests(unittest.TestCase):
                  'LTP-windows-x64-app.part2':'Windows application part',
                  'latest.json':'Update / checksum metadata',
                  'SHA256SUMS-windows.txt':'Update / checksum metadata',
+                 'SHA256SUMS-source.txt':'Update / checksum metadata',
                  'LTP-0.2.7-windows-source.zip':'Source / patch'}
         for name,expected in cases.items(): self.assertEqual(category(name),expected)
 

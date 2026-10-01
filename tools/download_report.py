@@ -18,8 +18,8 @@ def category(name):
     if 'linux' in n and n.endswith('.tar.gz'): return 'Linux package'
     if 'installer' in n and n.endswith('.zip'): return 'Windows installer'
     if '-app.part' in n: return 'Windows application part'
-    if 'source' in n or n.endswith('.patch'): return 'Source / patch'
     if n.endswith('.json') or 'sha256' in n: return 'Update / checksum metadata'
+    if 'source' in n or n.endswith('.patch'): return 'Source / patch'
     return 'Other release asset'
 
 
