@@ -8,17 +8,17 @@ The Windows application is unsigned. Local instance training, prediction and dec
 
 ## macOS
 
-Download the DMG from the [Mac release](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.4), open it, and drag LTP into Applications. The packaged app is signed and notarized. It targets Apple silicon and macOS 14 or newer; 16 GB of memory or more is recommended. Available acceleration depends on the selected workflow. Remote CUDA features require a separately configured workstation.
+Download the [latest Mac DMG](https://github.com/sciencehunt/LabelTrainPredict/releases/latest/download/LTP-mac.dmg) (always the newest version), open it, and drag LTP into Applications. The packaged app is signed and notarized. It targets Apple silicon and macOS 14 or newer; 16 GB of memory or more is recommended. Available acceleration depends on the selected workflow. Remote CUDA features require a separately configured workstation.
 
 The Mac app includes an update check. Windows and Linux update notifications link to the download page. Update checks contact GitHub; using a remote workstation also transfers the inputs required for that job to the configured server.
 
 ## Linux
 
-Download `ltp-0.2.5-linux-x86_64.tar.gz` from the [Linux release](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-windows-parity-preview). Use Python 3.10 to 3.12 with `venv` available.
+Download the [latest Linux package](https://github.com/sciencehunt/LabelTrainPredict/releases/latest/download/ltp-linux-x86_64.tar.gz) (always the newest version). Use Python 3.10 to 3.12 with `venv` available.
 
 ```bash
-tar xzf ltp-0.2.5-linux-x86_64.tar.gz
-cd ltp-0.2.5-linux-x86_64
+tar xzf ltp-linux-x86_64.tar.gz
+cd ltp-*-linux-x86_64
 ./install.sh
 ```
 

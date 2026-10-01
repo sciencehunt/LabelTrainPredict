@@ -10,11 +10,11 @@ Built with napari and PyTorch, LTP brings image annotation, model training and r
 
 | Platform | Download | Availability |
 |---|---|---|
-| macOS, Apple silicon | [Mac release 0.2.6](https://github.com/sciencehunt/LabelTrainPredict/releases/latest) | Signed and notarized for macOS 14 or newer; updates itself (a window at start-up offers new versions). |
-| Windows 10/11, x64 | [Windows preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-windows-parity-preview) | Installer and application parts. NVIDIA CUDA is required for local instance segmentation. |
-| Linux, x86_64 | [Linux preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-windows-parity-preview) | Download the Linux archive. The GPU engine has been tested; desktop validation is pending. |
+| macOS, Apple silicon | [**Download LTP for Mac (latest)**](https://github.com/sciencehunt/LabelTrainPredict/releases/latest/download/LTP-mac.dmg) | Always the newest version. Signed and notarized for macOS 14 or newer; updates itself (a window at start-up offers new versions). [Release notes](https://github.com/sciencehunt/LabelTrainPredict/releases/latest). |
+| Windows 10/11, x64 | [Windows preview (0.2.5)](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-windows-parity-preview) | The newest Windows build; it is older than the Mac and Linux release until the next Windows build is published. Installer and application parts. NVIDIA CUDA is required for local instance segmentation. |
+| Linux, x86_64 | [**Download LTP for Linux (latest)**](https://github.com/sciencehunt/LabelTrainPredict/releases/latest/download/ltp-linux-x86_64.tar.gz) | Always the newest version, built from the same source as the Mac release. The GPU engine has been tested; desktop validation is pending. |
 
-For source packages, see the [source preview](https://github.com/sciencehunt/LabelTrainPredict/releases/tag/v0.2.5-workspaces-preview). Download the installer for your platform to run the application.
+The Mac and Linux links always download the newest release, so there is nothing to update after installing. The source of each release is attached to it on the [releases page](https://github.com/sciencehunt/LabelTrainPredict/releases/latest).
 
 See [installation and hardware requirements](docs/GETTING_STARTED.md) before downloading. Preview releases may contain experimental features.
 
@@ -25,7 +25,7 @@ See [installation and hardware requirements](docs/GETTING_STARTED.md) before dow
 - **Train:** fit a segmentation model to your microscopy data. Advanced settings expose network structure and experimental flow, embedding and offset outputs.
 - **Predict:** process images in blocks locally or on an SSH GPU workstation, then inspect saved results and create correction crops.
 - **Preprocess:** even out uneven illumination (multiscale 3D gain field with noise reduction) or compress contrast (Mantiuk-inspired 3D), with an automatic recommendation and a side-by-side comparison before you accept. Runs on the Mac's Apple GPU or on a CUDA workstation over SSH; experimental angle-aware de-striping in Advanced. Corrected images are display copies saved separately from the originals.
-- **View Output:** inspect images and predictions, and combine up to eight masks from different projects using inclusion, exclusion, union or intersection. In the Mac release 0.2.5 and the source previews.
+- **View Output:** inspect images and predictions, and combine up to eight masks from different projects using inclusion, exclusion, union or intersection. 
 
 Original images, manual annotations and model predictions remain separate. Unlabelled pixels are not automatically treated as background. Predictions require review before they become training data.
 
