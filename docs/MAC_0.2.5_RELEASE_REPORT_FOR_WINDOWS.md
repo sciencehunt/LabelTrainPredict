@@ -134,3 +134,10 @@ Supporting reports are in `releases/methods_assessment_real_data/`:
 Not yet verified on the Mac:
 - the workstation (torch-CUDA) illumination route on a real worker;
 - native macOS rendering and point/shape alignment checked by eye in the full app.
+
+
+## Addendum: Mac 0.2.6 published (1 October, 09:41)
+- One change over 0.2.5: the **Setup "Preprocess images" section now opens the comparison automatically** when a quick test or a full run finishes (synced grid when several methods were tested, otherwise the original/processed compare window), matching the Preprocess dialog. `PreprocessSection.auto_compare` is off only in offscreen tests. Please mirror it on Windows.
+- Release v0.2.6 (latest) carries `LTP-0.2.6-mac-source.zip` and `MAC_0.2.6_vs_WINDOWS_now.patch`; build from this source rather than 0.2.5.
+- Test note: the live nnInteractive timing test now times a second, warmed-up click (the first GPU call after start-up or after the Mac wakes from sleep took 11–13 s).
+- This note could not be written to the share (`\\WIN_DO\Image_labeller` was unreachable at 09:45); it will be appended to `mac_windows_communication.md` when the share is back.
