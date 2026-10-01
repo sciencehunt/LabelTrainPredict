@@ -2,7 +2,7 @@
 
 ## Included
 
-This Windows build incorporates the published **v0.2.5-mac-source** first handoff (ZIP SHA-256 `a5ccf3fbe2c1aecabaacb1485de0157d1a55c5b0f9f6349b4a9bd9b0d3e374da`). It includes nnInteractive's selected training channels, legacy crop display names, shared CUDA/MPS engine, window-first tiled extraction, workstation setup and update notices. Windows-specific fixes cover queued startup notification/busy behavior, running-code version detection and native settings locations.
+This Windows build incorporates the published **v0.2.5-mac-source** first handoff (ZIP SHA-256 `d114789e024d45cfc0b84211ff008a3ec96863a924b63766d6c4a5be3adeb5b3`). It includes nnInteractive's selected training channels, legacy crop display names, shared CUDA/MPS engine, window-first tiled extraction, workstation setup and update notices. Windows-specific fixes cover queued startup notification/busy behavior, running-code version detection and native settings locations.
 
 Advanced settings retain SE U-Net and K3, optional SE attention, custom width/depth and independently weighted flow, embedding and offset supervision. Inference reads the architecture from the checkpoint; editing architecture requires retraining. Auxiliary heads remain experimental.
 
