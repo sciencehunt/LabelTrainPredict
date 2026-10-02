@@ -2,11 +2,13 @@
 
 ## Windows
 
-The Windows package is being rebuilt and is temporarily unavailable. When it is published, the download link on the front page will point to it: extract the installer ZIP into a writable folder and run **Install Label Workflow.cmd**.
+Download the [Windows 0.2.10 alpha.1 installer](https://github.com/sciencehunt/LabelTrainPredict/releases/download/v0.2.10-alpha.1/LTP-windows-x64-alpha-installer.zip), extract it into a writable folder, and run **Install LTP Alpha.cmd**. Allow 30 GB of free disk space. The installer downloads and verifies the application and its included Python runtimes. This alpha installs in its own folder and does not replace an existing LTP installation.
 
-For offline installation, download every `LTP-windows-x64-app.partN` file from the same release and place them beside `install.ps1`. Do not mix files from different releases. Administrator rights are not required.
+For offline installation, download every `LTP-windows-x64-app.partN` file from the same release and place them beside `install_alpha.py`. Do not mix files from different releases. Administrator rights are not required.
 
-The Windows application is unsigned. Local instance training, prediction and decoding require an NVIDIA CUDA GPU. Alternatively, configure an SSH GPU workstation. The instance pipeline does not silently fall back to CPU.
+This alpha passed viewer and nnInteractive GPU tests on one Windows PC with Smart App Control enabled. Some third-party libraries remain unsigned, so another PC may still block the installer or runtime. Keep protection enabled and report the exact error and blocked filename. Acceptance on a fresh Windows installation has not yet been established.
+
+Local instance training, prediction and decoding require an NVIDIA CUDA GPU. Alternatively, configure an SSH GPU workstation. Local nnInteractive includes its own helper runtime and offers a separate model download on first use. Its pretrained weights have a non-commercial licence. Use copies of your projects when testing this alpha.
 
 ## macOS
 
