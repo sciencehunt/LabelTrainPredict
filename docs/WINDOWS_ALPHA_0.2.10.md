@@ -4,7 +4,7 @@ This prerelease is available for testing the Windows viewer, image opening and l
 
 ## Install
 
-Download **LTP-windows-x64-alpha-installer.zip** from the release, extract it, then open **Install LTP Alpha.cmd**. Allow 30 GB of free disk space. The installer downloads the numbered application parts and verifies their SHA-256 checksums before extraction. For offline use, put every `LTP-windows-x64-app.partN` from this release beside `install.ps1`.
+Download **LTP-windows-x64-alpha-installer.zip** from the release, extract it, then open **Install LTP Alpha.cmd**. Allow 30 GB of free disk space. The installer downloads the numbered application parts and verifies their SHA-256 checksums before extraction. For offline use, put every `LTP-windows-x64-app.partN` from this release beside `install_alpha.py`.
 
 The alpha installs separately from older versions. Open the new desktop shortcut or **Launch LTP.cmd** in its installation folder. Python and the nnInteractive helper are included. Local nnInteractive needs a supported NVIDIA CUDA GPU and offers a first-use download of its optional model weights.
 
