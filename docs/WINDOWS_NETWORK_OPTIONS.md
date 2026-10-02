@@ -1,5 +1,7 @@
 # LTP 0.2.4 :  Windows network-options preview
 
+> **Build withdrawn.** The Windows installer and application parts described here were removed from the release page. A rebuilt Windows package will be linked from the [front page](../README.md) when it is published. The text below is kept as a record.
+
 This Windows preview publishes the SE/K3 and auxiliary-head work that was present in a separate local build but absent from the inspected public v0.2.3 Linux wheel. It does not replace the signed Mac v0.2.3 release or its updater manifest.
 
 ## Advanced training options

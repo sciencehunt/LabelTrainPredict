@@ -1,5 +1,7 @@
 # LTP 0.2.8 for Windows
 
+> **Build withdrawn.** The Windows installer and application parts described here were removed from the release page. A rebuilt Windows package will be linked from the [front page](../README.md) when it is published. The text below is kept as a record.
+
 This update improves remote image selection, preprocessing previews and workflow controls.
 
 - Open images through a configured SSH workstation without an incorrect address-mismatch error. Metadata inspection uses the selected preprocessing runtime.

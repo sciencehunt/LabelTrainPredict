@@ -1,5 +1,7 @@
 # LTP 0.2.7 for Windows
 
+> **Build withdrawn.** The Windows installer and application parts described here were removed from the release page. A rebuilt Windows package will be linked from the [front page](../README.md) when it is published. The text below is kept as a record.
+
 The Windows app incorporates the published Mac 0.2.7 interface updates: coordinated dark and light themes, an auto-hiding Images & channels panel, a pinnable layer list, and a floating Layer settings window with a keyboard shortcut. Crop switching reuses image and label layers and defers interface changes until menu events finish.
 
 Preprocess remains a separate optional step before Setup. Choose an image without creating a project, inspect metadata and channel names, compare corrections, and explicitly import an accepted full-resolution copy for labelling. Derivative lineage keeps the original and corrected data in the same evaluation source group. Original images and annotation histories are preserved; predictions remain unreviewed.
