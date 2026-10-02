@@ -2,7 +2,7 @@
 
 ## Windows
 
-Download the [Windows installer ZIP](https://github.com/sciencehunt/LabelTrainPredict/releases/download/v0.2.8-windows.1/LTP-windows-x64-installer.zip), extract it into a writable folder, and run **Install Label Workflow.cmd**. It downloads the required application parts from its exact release and verifies their SHA-256 checksums. Allow at least 30 GB of temporary disk space, plus space for any previous installation retained as a backup. Close LTP before updating an existing installation.
+The Windows package is being rebuilt and is temporarily unavailable. When it is published, the download link on the front page will point to it: extract the installer ZIP into a writable folder and run **Install Label Workflow.cmd**.
 
 For offline installation, download every `LTP-windows-x64-app.partN` file from the same release and place them beside `install.ps1`. Do not mix files from different releases. Administrator rights are not required.
 
