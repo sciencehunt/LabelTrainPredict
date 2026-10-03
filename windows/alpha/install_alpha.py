@@ -2,8 +2,8 @@
 import argparse,hashlib,json,os,shutil,subprocess,sys,tempfile,urllib.request,zipfile
 from pathlib import Path
 
-TAG='v0.2.10-alpha.1'
-NAME='LTP Windows 0.2.10 alpha.1'
+TAG='v0.2.12-alpha.1'
+NAME='LTP Windows 0.2.12 alpha.1'
 
 def sha(path):
     digest=hashlib.sha256()

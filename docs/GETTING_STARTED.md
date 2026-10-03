@@ -2,11 +2,11 @@
 
 ## Windows
 
-Download the [Windows 0.2.10 alpha.1 installer](https://github.com/sciencehunt/LabelTrainPredict/releases/download/v0.2.10-alpha.1/LTP-windows-x64-alpha-installer.zip), extract it into a writable folder, and run **Install LTP Alpha.cmd**. Allow 30 GB of free disk space. The installer downloads and verifies the application and its included Python runtimes. This alpha installs in its own folder and does not replace an existing LTP installation.
+Download the [Windows 0.2.12 alpha.1 installer](https://github.com/sciencehunt/LabelTrainPredict/releases/download/v0.2.12-alpha.1/LTP-windows-x64-alpha-installer.zip), extract it into a writable folder, and run **Install LTP Alpha.cmd**. Allow 30 GB of free disk space. The installer downloads and verifies the application and its included Python runtimes. This alpha installs in its own folder and does not replace an existing LTP installation.
 
 For offline installation, download every `LTP-windows-x64-app.partN` file from the same release and place them beside `install_alpha.py`. Do not mix files from different releases. Administrator rights are not required.
 
-This alpha passed viewer and nnInteractive GPU tests on one Windows PC with Smart App Control enabled. Some third-party libraries remain unsigned, so another PC may still block the installer or runtime. Keep protection enabled and report the exact error and blocked filename. Acceptance on a fresh Windows installation has not yet been established.
+This alpha passed targeted viewer, CUDA pyramid, Vulkan rendering and nnInteractive GPU checks on one Windows PC with protection left enabled. The nnInteractive helper includes vendor-signed pandas, SciPy and scikit-learn dependencies. Some other third-party libraries remain unsigned, so another PC may still block the installer or runtime. Keep protection enabled and report the exact error and blocked filename. Acceptance on a fresh Windows installation has not yet been established. Native slow-source cold-start responsiveness remains under improvement.
 
 Local instance training, prediction and decoding require an NVIDIA CUDA GPU. Alternatively, configure an SSH GPU workstation. Local nnInteractive includes its own helper runtime and offers a separate model download on first use. Its pretrained weights have a non-commercial licence. Use copies of your projects when testing this alpha.
 
@@ -45,3 +45,5 @@ Remote neural training and inference run on the workstation GPU. Inference adjus
 Preprocessing supports a local NVIDIA GPU on Windows, Apple GPU on macOS, or a configured CUDA workstation over SSH. The Windows package includes an isolated CuPy dependency overlay. Remote work requires an existing compatible workstation environment; the app does not install one automatically. Available GPU memory limits the global illumination solve. Smaller strided previews can miss fine structures.
 
 View Output supports GPU rendering for 3D mask combinations. Mask preparation and file reading can use the CPU.
+
+The Windows alpha includes the wgpu/Vulkan streaming engine in Large-volume 3D for supported intensity files. VisPy provides a bounded native preview. Experimental NVIDIA IndeX and Diligent options need separately installed compatible runtimes; native Windows execution with those engines is not verified.
