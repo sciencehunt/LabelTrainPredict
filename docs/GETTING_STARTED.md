@@ -2,7 +2,9 @@
 
 ## Windows
 
-Download the [Windows 0.2.12 alpha.1 installer](https://github.com/sciencehunt/LabelTrainPredict/releases/download/v0.2.12-alpha.1/LTP-windows-x64-alpha-installer.zip), extract it into a writable folder, and run **Install LTP Alpha.cmd**. Allow 30 GB of free disk space. The installer downloads and verifies the application and its included Python runtimes. This alpha installs in its own folder and does not replace an existing LTP installation.
+Download the [Windows 0.2.13 alpha.1 installer](https://github.com/sciencehunt/LabelTrainPredict/releases/download/v0.2.13-alpha.1/LTP-windows-x64-alpha-installer.zip), extract it into a writable folder, and run **Install LTP Alpha.cmd**. Allow 30 GB of free disk space. The installer downloads and verifies the application and its included Python runtimes. This alpha installs in its own folder and does not replace an existing LTP installation.
+
+For read-only inspection of a large IMS or TIFF volume, drop the image onto **Launch Fast 3D.cmd**. The main labeling workspace can briefly pause during startup; this known limitation and optional renderer requirements are documented in the release notes.
 
 For offline installation, download every `LTP-windows-x64-app.partN` file from the same release and place them beside `install_alpha.py`. Do not mix files from different releases. Administrator rights are not required.
 
