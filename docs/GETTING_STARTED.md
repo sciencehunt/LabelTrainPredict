@@ -2,13 +2,15 @@
 
 ## Windows
 
+**Windows: Smart App Control must be off to install LTP.** LTP for Windows is not code-signed yet. On Windows 11 PCs where Smart App Control is on, Windows blocks some of LTP's included files (for example PyTorch's GPU libraries) and LTP cannot start. To install: open **Settings → Privacy & security → Windows Security → App & browser control → Smart App Control settings**, choose **Off**, then run the installer. Microsoft Defender antivirus stays on. On Windows 11 with the April 2026 update (KB5083769) or later you can turn Smart App Control back on afterwards in the same place; on older versions it can only be turned back on by resetting Windows, so update Windows first if you want to switch it back on later. Signed Windows builds are planned.
+
 Download the [Windows 0.2.13 alpha.1 installer](https://github.com/sciencehunt/LabelTrainPredict/releases/download/v0.2.13-alpha.1/LTP-windows-x64-alpha-installer.zip), extract it into a writable folder, and run **Install LTP Alpha.cmd**. Allow 30 GB of free disk space. The installer downloads and verifies the application and its included Python runtimes. This alpha installs in its own folder and does not replace an existing LTP installation.
 
 For read-only inspection of a large IMS or TIFF volume, drop the image onto **Launch Fast 3D.cmd**. The main labeling workspace can briefly pause during startup; this known limitation and optional renderer requirements are documented in the release notes.
 
 For offline installation, download every `LTP-windows-x64-app.partN` file from the same release and place them beside `install_alpha.py`. Do not mix files from different releases. Administrator rights are not required.
 
-This alpha passed targeted viewer, CUDA pyramid, Vulkan rendering and nnInteractive GPU checks on one Windows PC with protection left enabled. The nnInteractive helper includes vendor-signed pandas, SciPy and scikit-learn dependencies. Some other third-party libraries remain unsigned, so another PC may still block the installer or runtime. Keep protection enabled and report the exact error and blocked filename. Acceptance on a fresh Windows installation has not yet been established. Native slow-source cold-start responsiveness remains under improvement.
+This alpha passed targeted viewer, CUDA pyramid, Vulkan rendering and nnInteractive GPU checks on one Windows PC with protection left enabled. The nnInteractive helper includes vendor-signed pandas, SciPy and scikit-learn dependencies. Some other third-party libraries remain unsigned, so another PC may still block the installer or runtime. Keep Microsoft Defender antivirus on and report the exact error and blocked filename. Acceptance on a fresh Windows installation has not yet been established. Native slow-source cold-start responsiveness remains under improvement.
 
 Local instance training, prediction and decoding require an NVIDIA CUDA GPU. Alternatively, configure an SSH GPU workstation. Local nnInteractive includes its own helper runtime and offers a separate model download on first use. Its pretrained weights have a non-commercial licence. Use copies of your projects when testing this alpha.
 
